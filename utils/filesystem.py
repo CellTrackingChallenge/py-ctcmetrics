@@ -15,7 +15,8 @@ def parse_directories(
     """
 
     # Parse sequences to evaluate
-    challenges = [x for x in listdir(input_dir) if isdir(join(input_dir, x))]
+    challenges = [x for x in sorted(listdir(input_dir))
+                  if isdir(join(input_dir, x))]
     assert len(challenges) > 0, f"No challenges found in {input_dir}"
     sequence_appendices = ["01", "02"]
     res_dirs, gt_dirs, num_digits, names = [], [], [], []

@@ -78,7 +78,6 @@ def evaluate_sequence(
         results["CCA"] = cca(res_tracks, gt_tracks)
     print("\r", end="")
 
-
     return results
 
 
