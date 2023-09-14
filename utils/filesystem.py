@@ -21,17 +21,19 @@ def parse_directories(
     res_dirs, gt_dirs, num_digits, names = [], [], [], []
     for challenge in challenges:
         sequences = [
-            x for x in listdir(join(input_dir, challenge)) if
+            x[0:2] for x in listdir(join(input_dir, challenge)) if
             isdir(join(input_dir, challenge, x))
         ]
         for sequence in sequences:
             if sequence in sequence_appendices:
                 assert challenge in NUM_DIGITS
+                res_dir = join(input_dir, challenge, sequence + "_RES")
+                if res_dir in res_dirs:
+                    continue
                 num_digits.append(NUM_DIGITS[challenge])
-                res_dirs.append(join(input_dir, challenge, sequence + "_RES"))
+                res_dirs.append(res_dir)
                 gt_dirs.append(join(gt_dir, challenge, sequence + "_GT"))
                 names.append(challenge + "_" + sequence)
-    assert len(res_dirs) > 0, f"No sequences found in {input_dir}"
 
     return res_dirs, gt_dirs, num_digits, names
 

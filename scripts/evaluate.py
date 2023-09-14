@@ -16,6 +16,7 @@ def evaluate_sequence(
         multiprocessing: bool = True,
     ):
     """ Evaluate a single sequence """
+    print("\r", res, end="")
     if metrics is None:
         """ Verify all metrics """
         metrics = ["Valid", "DET", "SEG", "TRA", "CT", "TF", "BC", "CCA"]
@@ -75,6 +76,8 @@ def evaluate_sequence(
         )
     if "CCA" in metrics:
         results["CCA"] = cca(res_tracks, gt_tracks)
+    print("\r", end="")
+
 
     return results
 
@@ -149,3 +152,12 @@ if __name__ == "__main__":
     print_results(res)
     if args.csv_path is not None:
         store_results(args.csv_path, res)
+
+
+# python scripts/evaluate.py --res="C:\Users\kaiser\Desktop\data\CTC\Inference\original\train" --gt="C:\Users\kaiser\Desktop\data\CTC\Inference\original\train" --csv-path="C:\Users\kaiser\Desktop\data\CTC\Inference\original\eval.csv" --full-directory
+# python scripts/evaluate.py --res="C:\Users\kaiser\Desktop\data\CTC\Inference\ours_1_1_no_mitosis\train" --gt="C:\Users\kaiser\Desktop\data\CTC\Inference\ours_1_1_no_mitosis\train" --csv-path="C:\Users\kaiser\Desktop\data\CTC\Inference\ours_1_1_no_mitosis\eval.csv" --full-directory
+# python scripts/evaluate.py --res="C:\Users\kaiser\Desktop\data\CTC\Inference\ours_20_5_no_mitosis\train" --gt="C:\Users\kaiser\Desktop\data\CTC\Inference\ours_20_5_no_mitosis\train" --csv-path="C:\Users\kaiser\Desktop\data\CTC\Inference\ours_20_5_no_mitosis\eval.csv" --full-directory
+
+
+# python scripts/evaluate.py --res="C:\Users\kaiser\Desktop\data\CTC\Inference\original\train\BF-C2DL-HSC\01_RES" --gt="C:\Users\kaiser\Desktop\data\CTC\Inference\original\train\BF-C2DL-HSC\01_GT" --Valid
+# python scripts/evaluate.py --res="C:\Users\kaiser\Desktop\data\CTC\Inference\ours_1_1_no_mitosis\train\BF-C2DL-HSC\01_RES" --gt="C:\Users\kaiser\Desktop\data\CTC\Inference\ours_1_1_no_mitosis\train\BF-C2DL-HSC\01_GT" --Valid
