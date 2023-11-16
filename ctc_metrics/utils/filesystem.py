@@ -3,7 +3,7 @@ from os import listdir
 from os.path import join, exists, isdir
 import numpy as np
 
-from utils.num_digits import NUM_DIGITS
+from ctc_metrics.utils.num_digits import NUM_DIGITS
 
 
 def parse_directories(
@@ -19,7 +19,7 @@ def parse_directories(
                   if isdir(join(input_dir, x))]
     assert len(challenges) > 0, f"No challenges found in {input_dir}"
     sequence_appendices = ["01", "02"]
-    res_dirs, gt_dirs, num_digits, names = [], [], [], []
+    res_dirs, gt_dirs, st_dirs, num_digits, names = [], [], [], [], []
     for challenge in challenges:
         sequences = [
             x[0:2] for x in listdir(join(input_dir, challenge)) if
@@ -33,10 +33,23 @@ def parse_directories(
                     continue
                 num_digits.append(NUM_DIGITS[challenge])
                 res_dirs.append(res_dir)
-                gt_dirs.append(join(gt_dir, challenge, sequence + "_GT"))
+                if gt_dir is not None:
+                    _gt_dir = join(gt_dir, challenge, sequence + "_GT")
+                    if not exists(_gt_dir):
+                        _gt_dir = None
+                    gt_dirs.append(_gt_dir)
+                else:
+                    gt_dirs.append(None)
+                if gt_dir is not None:
+                    _st_dir = join(gt_dir, challenge, sequence + "_ST")
+                    if not exists(_st_dir):
+                        _st_dir = None
+                    st_dirs.append(_st_dir)
+                else:
+                    st_dirs.append(None)
                 names.append(challenge + "_" + sequence)
 
-    return res_dirs, gt_dirs, num_digits, names
+    return res_dirs, gt_dirs, st_dirs, num_digits, names
 
 
 def read_tracking_file(path):

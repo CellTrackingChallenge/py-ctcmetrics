@@ -1,7 +1,7 @@
 import numpy as np
 from multiprocessing import Pool, cpu_count
 
-from utils.representations import cluster_full_tracks
+from ctc_metrics.utils.representations import cluster_full_tracks
 
 
 def find_match(

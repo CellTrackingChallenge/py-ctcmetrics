@@ -1,7 +1,5 @@
 import numpy as np
 
-from utils.representations import cluster_full_tracks
-
 
 def cca(
         res_tracks,

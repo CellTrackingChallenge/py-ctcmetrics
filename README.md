@@ -31,3 +31,4 @@ pip:
  - scikit-learn
  - tifffile
  - opencv-python
+ - scipy

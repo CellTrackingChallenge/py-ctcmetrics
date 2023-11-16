@@ -14,7 +14,7 @@ def print_results(results):
             args: A list containing the arguments for the line.
         """
 
-        print(*[f"{k}: {'N/A' if v is None else float(v):.3},\t" for k, v
+        print(*[f"{k}: {'N/A' if v is None else float(v):.5},\t" for k, v
                 in metrics.items()])
 
     if type(results) is dict:

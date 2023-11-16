@@ -1,6 +1,6 @@
 import numpy as np
 
-from utils.representations import cluster_full_tracks
+from ctc_metrics.utils.representations import cluster_full_tracks
 
 
 def ct(
