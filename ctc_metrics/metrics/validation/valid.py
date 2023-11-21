@@ -3,12 +3,25 @@ import warnings
 
 
 def valid(masks, tracks, labels_in_frames):
-    """ Checks all mask files in a cell tracking result directory if there is
-    at least one foreground pixel. If not, the file is reported. A foreground
-    pixel is defined as a pixel with a value > 0. The report is written to the
-    standard output.
     """
+    Checks if the cell tracking result is valid. The result is valid if...
+    - ...all parents are >= 0
+    - ...all labels are unique
+    - ...parents endet before children are born
+    (- ...all labels are used)
+    - ...all labels are in the frames they are used to be
+    - ...frames are not empty
 
+    Args:
+        masks: The masks of the result.
+        tracks: The result tracks.
+        labels_in_frames: The present labels corresponding to the file in
+            "masks".
+
+    Returns:
+        1 if the result is valid, 0 otherwise.
+
+    """
     is_valid = 1
     # Check if all parents are >= 0
     for i, track in enumerate(tracks):
@@ -39,7 +52,8 @@ def valid(masks, tracks, labels_in_frames):
     # Check if all labels are used
     max_label = max(labels)
     if max_label != len(labels):
-        warnings.warn("Some labels are not used.", UserWarning)
+        pass
+        #warnings.warn("Some labels are not used.", UserWarning)
         #is_valid = 0  # TODO: Check out if this is a valid criteria or not
 
     # Check if all labels are in the frames they are used to be
@@ -69,4 +83,4 @@ def valid(masks, tracks, labels_in_frames):
         if len(f) == 0:
             warnings.warn(f"Empty frame {i}.", UserWarning)
 
-    return is_valid
+    return int(is_valid)

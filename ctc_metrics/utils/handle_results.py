@@ -11,7 +11,7 @@ def print_results(results):
         """ Prints a line of the table.
 
         Args:
-            args: A list containing the arguments for the line.
+            metrics: A list containing the arguments for the line.
         """
 
         print(*[f"{k}: {'N/A' if v is None else float(v):.5},\t" for k, v

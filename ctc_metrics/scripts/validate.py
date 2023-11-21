@@ -13,7 +13,16 @@ def validate_sequence(
         res: str,
         multiprocessing: bool = True,
 ):
-    """ Evaluate a single sequence """
+    """
+    Validates a single sequence
+
+    Args:
+        res: The path to the results.
+        multiprocessing: Whether to use multiprocessing (recommended!).
+
+    Returns:
+        The results stored in a dictionary.
+    """
     print("\r", res, end="")
     res_tracks = read_tracking_file(join(res, "res_track.txt"))
     res_masks = parse_masks(res)
@@ -34,7 +43,6 @@ def validate_sequence(
 
     results = dict()
     results["Valid"] = valid(res_masks, res_tracks, labels_res)
-
     print("\r", end="")
 
     return results
@@ -43,30 +51,42 @@ def validate_sequence(
 def validate_all(
         res_root: str,
 ):
-    """ Evaluate all sequences in a directory """
+    """
+    Evaluate all sequences in a directory
+
+    Args:
+        res_root: The path to the results directory.
+
+    Returns:
+        The results stored in a dictionary.
+    """
     results = list()
 
     ret = parse_directories(res_root, None)
-    for res, gt, st, num_digits, name in zip(*ret):
+    for res, gt, name in zip(*ret):
         results.append([name, validate_sequence(res, gt)])
 
     return results
 
 
 def parse_args():
+    """ Parses the arguments. """
     parser = argparse.ArgumentParser(
-        description='Evaluates CTC-Sequences. '
+        description='Validates CTC-Sequences. '
     )
 
     parser.add_argument('--res', type=str, required=True)
-    parser.add_argument('--full-directory', action="store_true")
+    parser.add_argument('-r', '--recursive', action="store_true")
 
     args = parser.parse_args()
 
     return args
 
 
-if __name__ == "__main__":
+def main():
+    """
+    Main function that is called when the script is executed.
+    """
     args = parse_args()
 
     if args.full_directory:
@@ -76,10 +96,7 @@ if __name__ == "__main__":
 
     print_results(res)
 
-# python scripts/evaluate.py --res="C:\Users\kaiser\Desktop\data\CTC\Inference\original\train" --gt="C:\Users\kaiser\Desktop\data\CTC\Inference\original\train" --csv-path="C:\Users\kaiser\Desktop\data\CTC\Inference\original\eval.csv" --full-directory
-# python scripts/evaluate.py --res="C:\Users\kaiser\Desktop\data\CTC\Inference\ours_1_1_no_mitosis\train" --gt="C:\Users\kaiser\Desktop\data\CTC\Inference\ours_1_1_no_mitosis\train" --csv-path="C:\Users\kaiser\Desktop\data\CTC\Inference\ours_1_1_no_mitosis\eval.csv" --full-directory
-# python scripts/evaluate.py --res="C:\Users\kaiser\Desktop\data\CTC\Inference\ours_20_5_no_mitosis\train" --gt="C:\Users\kaiser\Desktop\data\CTC\Inference\ours_20_5_no_mitosis\train" --csv-path="C:\Users\kaiser\Desktop\data\CTC\Inference\ours_20_5_no_mitosis\eval.csv" --full-directory
 
+if __name__ == "__main__":
+    main()
 
-# python scripts/evaluate.py --res="C:\Users\kaiser\Desktop\data\CTC\Inference\original\train\BF-C2DL-HSC\01_RES" --gt="C:\Users\kaiser\Desktop\data\CTC\Inference\original\train\BF-C2DL-HSC\01_GT" --Valid
-# python scripts/evaluate.py --res="C:\Users\kaiser\Desktop\data\CTC\Inference\ours_1_1_no_mitosis\train\BF-C2DL-HSC\01_RES" --gt="C:\Users\kaiser\Desktop\data\CTC\Inference\ours_1_1_no_mitosis\train\BF-C2DL-HSC\01_GT" --Valid

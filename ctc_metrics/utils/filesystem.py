@@ -3,15 +3,22 @@ from os import listdir
 from os.path import join, exists, isdir
 import numpy as np
 
-from ctc_metrics.utils.num_digits import NUM_DIGITS
-
 
 def parse_directories(
         input_dir,
         gt_dir,
 ):
     """
+    Parses a directory and searches for challenges and their respective
+    result/ground-truth subdirectories.
 
+    Args:
+        input_dir: The directory to parse.
+        gt_dir: The directory containing the ground truth.
+
+    Returns:
+        A tuple of three lists containing the result directories, the
+        ground-truth directories and the names of the challenges/sequences.
     """
 
     # Parse sequences to evaluate
@@ -19,19 +26,17 @@ def parse_directories(
                   if isdir(join(input_dir, x))]
     assert len(challenges) > 0, f"No challenges found in {input_dir}"
     sequence_appendices = ["01", "02"]
-    res_dirs, gt_dirs, st_dirs, num_digits, names = [], [], [], [], []
+    res_dirs, gt_dirs, names = [], [], []
     for challenge in challenges:
         sequences = [
-            x[0:2] for x in listdir(join(input_dir, challenge)) if
+            x[0:2] for x in sorted(listdir(join(input_dir, challenge))) if
             isdir(join(input_dir, challenge, x))
         ]
         for sequence in sequences:
             if sequence in sequence_appendices:
-                assert challenge in NUM_DIGITS
                 res_dir = join(input_dir, challenge, sequence + "_RES")
                 if res_dir in res_dirs:
                     continue
-                num_digits.append(NUM_DIGITS[challenge])
                 res_dirs.append(res_dir)
                 if gt_dir is not None:
                     _gt_dir = join(gt_dir, challenge, sequence + "_GT")
@@ -40,16 +45,9 @@ def parse_directories(
                     gt_dirs.append(_gt_dir)
                 else:
                     gt_dirs.append(None)
-                if gt_dir is not None:
-                    _st_dir = join(gt_dir, challenge, sequence + "_ST")
-                    if not exists(_st_dir):
-                        _st_dir = None
-                    st_dirs.append(_st_dir)
-                else:
-                    st_dirs.append(None)
                 names.append(challenge + "_" + sequence)
 
-    return res_dirs, gt_dirs, st_dirs, num_digits, names
+    return res_dirs, gt_dirs, names
 
 
 def read_tracking_file(path):
@@ -62,8 +60,6 @@ def read_tracking_file(path):
         B - a zero-based temporal index of the frame in which the track begins
         E - a zero-based temporal index of the frame in which the track ends
         P - label of the parent track (0 is used when no parent is defined)
-
-    # Checked against test datasets -> OK
 
     Args:
         path: Path to the text file.
@@ -85,15 +81,13 @@ def parse_masks(dir):
     """
     Reads all frame files in a directory and returns a list of frames.
 
-    # Checked against test datasets -> OK
-
     Args:
         dir: The directory to read.
 
     Returns:
         A sorted list of frame paths.
     """
-    files = os.listdir(dir)
+    files = sorted(os.listdir(dir))
     files = [x for x in files if x.endswith(".tif")]
     files = [join(dir, x) for x in files]
     files = sorted(files)

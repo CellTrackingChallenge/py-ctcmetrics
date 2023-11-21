@@ -2,82 +2,59 @@ import numpy as np
 
 
 def cca(
-        res_tracks,
-        gt_tracks,
+        comp_tracks,
+        ref_tracks,
+        labels_ref,
+        labels_comp,
+        mapped_ref,
+        mapped_comp,
 ):
     """
-    Computes the cell cycle accuracy metric.
-
-    # Checked against test datasets -> OK
+    Computes the cell cycle accuracy. As described in the paper,
+         "An objective comparison of cell-tracking algorithms."
+           - Vladimir Ulman et al., Nature methods 2017
 
     Args:
-        res_tracks: The result tracks.
-        gt_tracks: The ground truth tracks.
-        existing_ground_truth_frames: The frames in the ground truth.
-        matches: The matches between the result and ground truth tracks.
+        comp_tracks: The result tracks.
+        ref_tracks: The ground truth tracks.
+        labels_ref: The labels of the ground truth masks.
+        labels_comp: The labels of the result masks.
+        mapped_ref: The matched labels of the ground truth masks.
+        mapped_comp: The matched labels of the result masks.
 
     Returns:
         The cell cycle accuracy metric.
     """
-    # Calculate mitosis distribution in ground_truth
-    gt_track_lengths = list()
-    parent_label, num_children = np.unique(gt_tracks[:, 3], return_counts=True)
-    num_children[parent_label == 0] = 0
-    has_two_children = parent_label[num_children > 1]
-    has_one_child = parent_label[num_children == 1]
-    has_sibling = gt_tracks[np.isin(gt_tracks[:, 3], has_two_children), 0]
-    if has_sibling.size == 0:
+
+    is_parent_ref = np.isin(ref_tracks[:, 0], ref_tracks[:, 3])
+    is_child_ref = np.isin(ref_tracks[:, 3], ref_tracks[:, 0])
+    valid_ref = np.logical_and(is_parent_ref, is_child_ref)
+    track_lengths_ref = np.sum(ref_tracks[:, 2] - ref_tracks[:, 1])
+    if np.sum(valid_ref) == 0:
         return None
-    for label in has_sibling:
-        total_length = 0
-        current_label = label
-        while True:
-            idx = np.where(gt_tracks[:, 0] == current_label)[0][0]
-            total_length += 1 + gt_tracks[idx, 2] - gt_tracks[idx, 1]
-            if current_label in has_two_children:
-                gt_track_lengths.append(total_length)
-                break
-            elif current_label in has_one_child:
-                idx = np.where(gt_tracks[:, 3] == current_label)[0][0]
-                current_label = gt_tracks[idx, 0]
-            else:
-                break
-    if len(gt_track_lengths) == 0:
-        return None
-    # Calculate mitosis distribution in results
-    res_track_lengths = list()
-    parent_label, num_children = np.unique(res_tracks[:, 3], return_counts=True)
-    num_children[parent_label == 0] = 0
-    has_two_children = parent_label[num_children > 1]
-    has_one_child = parent_label[num_children == 1]
-    has_sibling = res_tracks[np.isin(res_tracks[:, 3], has_two_children), 0]
-    if has_sibling.size == 0:
+    track_lengths_ref = track_lengths_ref[valid_ref]
+
+    is_parent_comp = np.isin(comp_tracks[:, 0], comp_tracks[:, 3])
+    is_child_comp = np.isin(comp_tracks[:, 3], comp_tracks[:, 0])
+    valid_comp = np.logical_and(is_parent_comp, is_child_comp)
+    track_lengths_comp = np.sum(comp_tracks[:, 2] - comp_tracks[:, 1])
+    if np.sum(valid_comp) == 0:
         return 0
-    for label in has_sibling:
-        total_length = 0
-        current_label = label
-        while True:
-            idx = np.where(res_tracks[:, 0] == current_label)[0][0]
-            total_length += 1 + res_tracks[idx, 2] - res_tracks[idx, 1]
-            if current_label in has_two_children:
-                res_track_lengths.append(total_length)
-                break
-            elif current_label in has_one_child:
-                idx = np.where(res_tracks[:, 3] == current_label)[0][0]
-                current_label = res_tracks[idx, 0]
-            else:
-                break
-    if len(res_track_lengths) == 0:
-        return 0
-    # Compare distributions
-    max_len = max([max(res_track_lengths),max(gt_track_lengths)])
-    res_dist, gt_dist = np.zeros(max_len+1), np.zeros(max_len+1)
-    for i in res_track_lengths:
-        res_dist[i-1] += 1
-    for i in gt_track_lengths:
-        gt_dist[i-1] += 1
-    res_dist_cdf = np.cumsum(res_dist)/ np.sum(res_dist)
-    gt_dist_cdf = np.cumsum(gt_dist) / np.sum(gt_dist)
-    diff = np.abs(res_dist_cdf - gt_dist_cdf)
-    cca = 1 - np.max(diff)
+    track_lengths_comp = track_lengths_comp[valid_comp]
+
+    max_track_length = np.max(
+        [np.max(track_lengths_ref), np.max(track_lengths_comp)])
+    hist_ref = np.arange(0, np.max(max_track_length) + 1)
+    for i in track_lengths_ref:
+        hist_ref[i] += 1
+    hist_ref = hist_ref / np.sum(hist_ref)
+    cum_hist_ref = np.cumsum(hist_ref)
+    hist_comp = np.arange(0, np.max(max_track_length) + 1)
+    for i in track_lengths_comp:
+        hist_comp[i] += 1
+    hist_comp = hist_comp / np.sum(hist_comp)
+    cum_hist_comp = np.cumsum(hist_comp)
+
+    cca = np.max(np.abs(cum_hist_ref - cum_hist_comp))
+
     return float(cca)
