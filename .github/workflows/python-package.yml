@@ -37,6 +37,7 @@ jobs:
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - name: Test with pytest
       run: |
-        sh test\prepare_test_data.sh
+        ls .
+        sh ./test/prepare_test_data.sh
         ls test
         pytest
