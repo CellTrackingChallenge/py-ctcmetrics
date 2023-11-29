@@ -89,7 +89,7 @@ def main():
     """
     args = parse_args()
 
-    if args.full_directory:
+    if args.recursive:
         res = validate_all(args.res)
     else:
         res = validate_sequence(args.res)
