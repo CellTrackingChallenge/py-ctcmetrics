@@ -198,7 +198,7 @@ def main():
     # Visualize and store results
     print_results(res)
     if args.csv_file is not None:
-        store_results(args.csv_path, res)
+        store_results(args.csv_file, res)
 
 
 if __name__ == "__main__":
