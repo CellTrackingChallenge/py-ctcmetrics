@@ -26,35 +26,46 @@ def cca(
         The cell cycle accuracy metric.
     """
 
-    is_parent_ref = np.isin(ref_tracks[:, 0], ref_tracks[:, 3])
-    is_child_ref = np.isin(ref_tracks[:, 3], ref_tracks[:, 0])
+    # Extract relevant tracks with parents and children in reference
+    parents_ref, counts_ref = np.unique(ref_tracks[:, 3], return_counts=True)
+    counts_ref = counts_ref[parents_ref > 0]
+    parents_ref = parents_ref[parents_ref > 0]
+    ends_with_split_ref = parents_ref[counts_ref > 1]
+    is_parent_ref = np.isin(ref_tracks[:, 0], ends_with_split_ref)
+    is_child_ref = np.isin(ref_tracks[:, 3], ends_with_split_ref)
     valid_ref = np.logical_and(is_parent_ref, is_child_ref)
-    track_lengths_ref = np.sum(ref_tracks[:, 2] - ref_tracks[:, 1])
+    track_lengths_ref = ref_tracks[:, 2] - ref_tracks[:, 1]
     if np.sum(valid_ref) == 0:
         return None
     track_lengths_ref = track_lengths_ref[valid_ref]
 
-    is_parent_comp = np.isin(comp_tracks[:, 0], comp_tracks[:, 3])
-    is_child_comp = np.isin(comp_tracks[:, 3], comp_tracks[:, 0])
+    # Extract relevant tracks with parents and children in computed result
+    parents_comp, counts_comp = np.unique(comp_tracks[:, 3], return_counts=True)
+    counts_comp = counts_comp[parents_comp > 0]
+    parents_comp = parents_comp[parents_comp > 0]
+    ends_with_split_comp = parents_comp[counts_comp > 1]
+    is_parent_comp = np.isin(comp_tracks[:, 0], ends_with_split_comp)
+    is_child_comp = np.isin(comp_tracks[:, 3], ends_with_split_comp)
     valid_comp = np.logical_and(is_parent_comp, is_child_comp)
-    track_lengths_comp = np.sum(comp_tracks[:, 2] - comp_tracks[:, 1])
+    track_lengths_comp = comp_tracks[:, 2] - comp_tracks[:, 1]
     if np.sum(valid_comp) == 0:
         return 0
     track_lengths_comp = track_lengths_comp[valid_comp]
 
+    # Calculate CCA
     max_track_length = np.max(
         [np.max(track_lengths_ref), np.max(track_lengths_comp)])
-    hist_ref = np.arange(0, np.max(max_track_length) + 1)
+    hist_ref = np.zeros(np.max(max_track_length) + 1)
     for i in track_lengths_ref:
         hist_ref[i] += 1
     hist_ref = hist_ref / np.sum(hist_ref)
     cum_hist_ref = np.cumsum(hist_ref)
-    hist_comp = np.arange(0, np.max(max_track_length) + 1)
+    hist_comp = np.zeros(np.max(max_track_length) + 1)
     for i in track_lengths_comp:
         hist_comp[i] += 1
     hist_comp = hist_comp / np.sum(hist_comp)
     cum_hist_comp = np.cumsum(hist_comp)
 
-    cca = np.max(np.abs(cum_hist_ref - cum_hist_comp))
+    cca = 1 - np.max(np.abs(cum_hist_ref - cum_hist_comp))
 
     return float(cca)

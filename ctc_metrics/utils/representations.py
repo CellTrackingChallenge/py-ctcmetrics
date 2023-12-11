@@ -98,14 +98,20 @@ def merge_tracks(
     # Create an id mapping that is valid after merge
     ref_tracks = ref_tracks[np.argsort(ref_tracks[:, 1])]
     id_mapping_ref = {0: 0, -1: -1} | {x: x for x in ref_tracks[:, 0]}
+    uniques, counts = np.unique(ref_tracks[:, 3], return_counts=True)
+    ref_one_child = uniques[counts == 1]
     for i, _, _, p in ref_tracks:
         if p > 0:
-            id_mapping_ref[i] = id_mapping_ref[p]
+            if p in ref_one_child:
+                id_mapping_ref[i] = id_mapping_ref[p]
     comp_tracks = comp_tracks[np.argsort(comp_tracks[:, 1])]
     id_mapping_comp = {0: 0, -1: -1} | {x: x for x in comp_tracks[:, 0]}
+    uniques, counts = np.unique(comp_tracks[:, 3], return_counts=True)
+    comp_one_child = uniques[counts == 1]
     for i, _, _, p in comp_tracks:
         if p > 0:
-            id_mapping_comp[i] = id_mapping_comp[p]
+            if p in comp_one_child:
+                id_mapping_comp[i] = id_mapping_comp[p]
     # Remove unnecessary tracklets from track files
     ref_tracks[:, 0] = [id_mapping_ref[x] for x in ref_tracks[:, 0]]
     ref_tracks[:, 3] = [id_mapping_ref[x] for x in ref_tracks[:, 3]]
@@ -371,17 +377,23 @@ def assign_comp_to_ref(
         A dictionary with the reference labels as keys and the computed
         labels as values.
     """
-    track_assignments = dict()
+    all_labels = np.unique(np.concatenate(labels_ref))
+    max_frame = len(labels_ref)
+    track_assignments = {
+        k: np.zeros(max_frame) * np.nan for k in all_labels
+    }
+    frame = 0
     for l_gt, l_res, m_gt, m_res in zip(
             labels_ref, labels_comp, mapped_ref, mapped_comp
     ):
         for i in l_gt:
-            if i not in track_assignments:
-                track_assignments[i] = list()
             if i in m_gt:
                 match = m_res[int(np.argwhere(np.asarray(m_gt) == i)[0])]
-                track_assignments[i].append(match)
+                track_assignments[i][frame] = match
+                counts = np.sum(np.asarray(m_res) == match)
+                if counts > 1:
+                    track_assignments[i][frame] = 0
             else:
-                track_assignments[i].append(-1)
-    track_assignments = {k: np.asarray(v) for k, v in track_assignments.items()}
+                track_assignments[i][frame] = 0
+        frame += 1
     return track_assignments

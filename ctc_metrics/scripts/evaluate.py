@@ -28,7 +28,7 @@ def evaluate_sequence(
     Returns:
         The results stored in a dictionary.
     """
-    print("\r", res, end="")
+    print("\r", res, end=": \n")
     if metrics is None:
         """ Verify all metrics """
         metrics = ["Valid", "DET", "SEG", "TRA", "CT", "TF", "BC", "CCA"]
@@ -42,52 +42,59 @@ def evaluate_sequence(
     assert len(gt_tra_masks) == len(res_masks)
 
     # Match golden truth tracking masks to result masks
-    args = zip(gt_tra_masks, res_masks)
-    if multiprocessing:
-        with Pool(cpu_count()) as p:
-            matches = p.starmap(match_tracks, args)
-    else:
-        matches = [match_tracks(*x) for x in args]
     labels_gt_tra, labels_res_tra, mapped_gt_tra, mapped_res_tra, ious_tra = \
         [], [], [], [], []
-    for match in matches:
-        labels_gt_tra.append(match[0])
-        labels_res_tra.append(match[1])
-        mapped_gt_tra.append(match[2])
-        mapped_res_tra.append(match[3])
-        ious_tra.append(match[4])
+    if sorted(metrics) != ["CCA"]:
+        args = zip(gt_tra_masks, res_masks)
+        if multiprocessing:
+            with Pool(cpu_count()) as p:
+                matches = p.starmap(match_tracks, args)
+        else:
+            matches = [match_tracks(*x) for x in args]
+        for match in matches:
+            labels_gt_tra.append(match[0])
+            labels_res_tra.append(match[1])
+            mapped_gt_tra.append(match[2])
+            mapped_res_tra.append(match[3])
+            ious_tra.append(match[4])
 
     # Match golden truth segmentation masks to result masks
     _res_masks = [
         res_masks[int(basename(x).replace("man_seg", "").replace(".tif", ""))]
         for x in gt_seg_masks
     ]
-    args = zip(gt_seg_masks, _res_masks)
-    if multiprocessing:
-        with Pool(cpu_count()) as p:
-            matches = p.starmap(match_tracks, args)
-    else:
-        matches = [match_tracks(*x) for x in args]
     labels_gt_seg, labels_res_seg, mapped_gt_seg, mapped_res_seg, ious_seg = \
         [], [], [], [], []
-    for match in matches:
-        labels_gt_seg.append(match[0])
-        labels_res_seg.append(match[1])
-        mapped_gt_seg.append(match[2])
-        mapped_res_seg.append(match[3])
-        ious_seg.append(match[4])
+    if sorted(metrics) != ["CCA"]:
+        args = zip(gt_seg_masks, _res_masks)
+        if multiprocessing:
+            with Pool(cpu_count()) as p:
+                matches = p.starmap(match_tracks, args)
+        else:
+            matches = [match_tracks(*x) for x in args]
+
+        for match in matches:
+            labels_gt_seg.append(match[0])
+            labels_res_seg.append(match[1])
+            mapped_gt_seg.append(match[2])
+            mapped_res_seg.append(match[3])
+            ious_seg.append(match[4])
 
     # Prepare intermediate results
-    NS, FN, FP, ED, EA, EC, num_vertices, num_edges = \
-        count_acyclic_graph_correction_operations(
-            gt_tracks, res_tracks,
-            labels_gt_tra, labels_res_tra, mapped_gt_tra, mapped_res_tra
-        )
+    if "DET" in metrics or "TRA" in metrics:
+        NS, FN, FP, ED, EA, EC, num_vertices, num_edges = \
+            count_acyclic_graph_correction_operations(
+                gt_tracks, res_tracks,
+                labels_gt_tra, labels_res_tra, mapped_gt_tra, mapped_res_tra
+            )
+    else:
+        NS, FN, FP, ED, EA, EC, num_vertices, num_edges = \
+            None, None, None, None, None, None, None, None
+
     original_tracks = [
         res_tracks, gt_tracks, labels_gt_tra, labels_res_tra, mapped_gt_tra,
         mapped_res_tra
     ]
-    merged_tracks = merge_tracks(*original_tracks)
 
     # Calculate metrics
     results = dict()
@@ -96,31 +103,26 @@ def evaluate_sequence(
         results["Valid"] = valid(res_masks, res_tracks, labels_res_tra)
     if "DET" in metrics:
         results["DET"] = det(NS, FN, FP, num_vertices)
-        results["AOGM_NS"] = NS
-        results["AOGM_FN"] = FN
-        results["AOGM_FP"] = FP
     if "SEG" in metrics:
         SEG, SEG_TP, SEG_FN = seg(labels_gt_seg, ious_seg)
         results["SEG"] = SEG
-        results["SEG_TP"] = SEG_TP
-        results["SEG_FN"] = SEG_FN
     if "TRA" in metrics:
         results["TRA"] = tra(NS, FN, FP, ED, EA, EC, num_vertices, num_edges)
-        results["AOGM_ED"] = ED
-        results["AOGM_EA"] = EA
-        results["AOGM_EC"] = EC
     if "CT" in metrics:
-        results["CT"] = ct(*merged_tracks)
+        results["CT"] = ct(*original_tracks)
     if "TF" in metrics:
-        results["TF"] = tf(*merged_tracks)
+        results["TF"] = tf(*original_tracks)
     if "BC" in metrics:
-        results["BC(0)"] = bc(*merged_tracks, i=0)
-        results["BC(1)"] = bc(*merged_tracks, i=1)
-        results["BC(2)"] = bc(*merged_tracks, i=2)
-        results["BC(3)"] = bc(*merged_tracks, i=3)
+        results["BC(0)"] = bc(*original_tracks, i=0)
+        results["BC(1)"] = bc(*original_tracks, i=1)
+        results["BC(2)"] = bc(*original_tracks, i=2)
+        results["BC(3)"] = bc(*original_tracks, i=3)
+        results["BC(4)"] = bc(*original_tracks, i=4)
+        results["BC(5)"] = bc(*original_tracks, i=5)
     if "CCA" in metrics:
-        results["CCA"] = cca(*merged_tracks)
-    print("\r", end="")
+        results["CCA"] = cca(*original_tracks)
+    #print("\r", end="")
+    print(results)
 
     return results
 
@@ -163,14 +165,14 @@ def parse_args():
     parser.add_argument('--gt', type=str, required=True)
     parser.add_argument('-r', '--recursive', action="store_true")
     parser.add_argument('--csv-path', type=str, default=None)
-    parser.add_argument('--Valid', action="store_true")
-    parser.add_argument('--DET', action="store_true")
-    parser.add_argument('--SEG', action="store_true")
-    parser.add_argument('--TRA', action="store_true")
-    parser.add_argument('--CT', action="store_true")
-    parser.add_argument('--TF', action="store_true")
-    parser.add_argument('--BC', action="store_true")
-    parser.add_argument('--CCA', action="store_true")
+    parser.add_argument('--valid', action="store_true")
+    parser.add_argument('--det', action="store_true")
+    parser.add_argument('--seg', action="store_true")
+    parser.add_argument('--tra', action="store_true")
+    parser.add_argument('--ct', action="store_true")
+    parser.add_argument('--tf', action="store_true")
+    parser.add_argument('--bc', action="store_true")
+    parser.add_argument('--cca', action="store_true")
 
     args = parser.parse_args()
 
@@ -184,21 +186,21 @@ def main():
     args = parse_args()
 
     metrics = list()
-    if args.Valid:
+    if args.valid:
         metrics.append("Valid")
-    if args.DET:
+    if args.det:
         metrics.append("DET")
-    if args.SEG:
+    if args.seg:
         metrics.append("SEG")
-    if args.TRA:
+    if args.tra:
         metrics.append("TRA")
-    if args.CT:
+    if args.ct:
         metrics.append("CT")
-    if args.TF:
+    if args.tf:
         metrics.append("TF")
-    if args.BC:
+    if args.bc:
         metrics.append("BC")
-    if args.CCA:
+    if args.cca:
         metrics.append("CCA")
     if len(metrics) == 0:
         metrics = None
