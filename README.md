@@ -3,7 +3,7 @@
 [![Python package](https://github.com/TimoK93/ctc-metrics/actions/workflows/python-package.yml/badge.svg)](https://github.com/TimoK93/ctc-metrics/actions/workflows/python-package.yml)
 
 # CTC-Metrics
-An unofficial python implementation of the metrics used in the 
+An **unofficial** python implementation of the metrics used in the 
 [Cell-Tracking-Challenge](https://celltrackingchallenge.net/).
 
 ---
@@ -12,7 +12,7 @@ An unofficial python implementation of the metrics used in the
 
 PLEASE DO NOT USE! No Guarantee that it works as intended!
 
-The first version will be published soon.
+The first tested version will be published soon.
 
 ---
 
@@ -29,7 +29,7 @@ The package can be installed via pip:
 pip install git+https://github.com/TimoK93/ctc-metrics.git
 ```
 
-or directly from the source code:
+or from the source code:
 
 ```bash
 git clone https://github.com/TimoK93/ctc-metrics
@@ -86,12 +86,12 @@ ctc_evaluate --gt "/ctc/train" --res "/ctc/train" -r
 There are additional arguments that can be used to specify the evaluation. The
 following table shows the available arguments:
 
-| Argument | Description                                         | Default |
-| --- |-----------------------------------------------------| --- |
-| --gt | Path to the ground truth directory                  | None |
-| --res | Path to the results directory                       | None |
+| Argument    | Description                                         | Default |
+|-------------|-----------------------------------------------------| --- |
+| --gt        | Path to the ground truth directory                  | None |
+| --res       | Path to the results directory                       | None |
 | --recursive | Recursively evaluate all sequences in the directory | False |
-| --csv-path | Path to a csv file to save the results              | None |
+| --csv-file  | Path to a csv file to save the results              | None |
 
 Per default, all metrics are evaluated. Additional arguments to select a subset 
 of specific metrics are:
@@ -128,7 +128,21 @@ print(res["TRA"])
     
 ```
 
-## Cite
+## Contributing
+
+Contributions are welcome! For bug reports or requests please
+[submit an issue](www.github.com/TimoK93/ctc-metrics/issues). For new features
+please [submit a pull request](www.github.com/TimoK93/ctc-metrics/pulls).
+
+If you want to contribute, please check your code with pylint and the
+pre-commit hooks before submitting a pull request:
+
+```bash
+pip install pre-commit, pylint
+pre-commit run --all-files
+```
+
+## Acknowledgement and Citation
 
 The code was developed by Timo Kaiser on behalf of the [Institute of Information
 Processing](https://www.tnt.uni-hannover.de/) at the Leibniz University Hanover 
@@ -139,8 +153,15 @@ and in conjunction with the organizers of the
 If you use this code in your research, please cite the following paper:
 
 ```bibtex
-@inproceedings{,
-  what should be cited here?
+@article{thecelltrackingchallenge,
+    author = {Maška, Martin and Ulman, Vladimír and Delgado-Rodriguez, Pablo and Gómez de Mariscal, Estibaliz and Necasova, Tereza and Guerrero Peña, Fidel Alejandro and Ing Ren, Tsang and Meyerowitz, Elliot and Scherr, Tim and Löffler, Katharina and Mikut, Ralf and Guo, Tianqi and Wang, Yin and Allebach, Jan and Bao, Rina and Al-Shakarji, Noor and Rahmon, Gani and Toubal, Imad Eddine and Palaniappan, K. and Ortiz-de-Solorzano, Carlos},
+    year = {2023},
+    month = {05},
+    pages = {1-11},
+    title = {The Cell Tracking Challenge: 10 years of objective benchmarking},
+    volume = {20},
+    journal = {Nature Methods},
+    doi = {10.1038/s41592-023-01879-y}
 }
 ```
 

@@ -4,12 +4,11 @@ from ctc_metrics.utils.representations import assign_comp_to_ref
 
 
 def ct(
-        comp_tracks,
-        ref_tracks,
-        labels_ref,
-        labels_comp,
-        mapped_ref,
-        mapped_comp,
+        comp_tracks: np.ndarray,
+        ref_tracks: np.ndarray,
+        labels_ref: list,
+        mapped_ref: list,
+        mapped_comp: list
 ):
     """
     Computes the complete tracks metric. As described in the paper,
@@ -20,18 +19,13 @@ def ct(
         comp_tracks: The result tracks.
         ref_tracks: The ground truth tracks.
         labels_ref: The labels of the ground truth masks.
-        labels_comp: The labels of the result masks.
         mapped_ref: The matched labels of the ground truth masks.
         mapped_comp: The matched labels of the result masks.
 
     Returns:
         The complete tracks metric.
     """
-
-    track_assignments = assign_comp_to_ref(
-        labels_ref, labels_comp, mapped_ref, mapped_comp
-    )
-
+    track_assignments = assign_comp_to_ref(labels_ref, mapped_ref, mapped_comp)
     correct_tracks = 0
     for k, v in track_assignments.items():
         start_ref = ref_tracks[ref_tracks[:, 0] == k][0, 1]
@@ -46,16 +40,8 @@ def ct(
         end_comp = comp_tracks[comp_tracks[:, 0] == assignee][0, 2]
         if start_ref == start_comp and end_ref == end_comp:
             correct_tracks += 1
-
     T_rc = correct_tracks
     T_r = len(ref_tracks)
     T_c = len(comp_tracks)
-    ct = float(2 * T_rc / (T_c + T_r))
-    return float(ct)
+    return float(2 * T_rc / (T_c + T_r))
 
-
-if __name__ == "__main__":
-    print(np.unique([1,2,3,4,5], return_counts=True))
-    uniques, counts = np.unique([1,2,3,4,5], return_counts=True)
-    for i,c in zip(uniques, counts):
-        print(i,c)

@@ -1,14 +1,30 @@
 import numpy as np
 
+from ctc_metrics.metrics.biological.bc import get_ids_that_ends_with_split
 
-def cca(
-        comp_tracks,
-        ref_tracks,
-        labels_ref,
-        labels_comp,
-        mapped_ref,
-        mapped_comp,
+
+def is_valid_track(
+        tracks: np.ndarray,
 ):
+    """
+    Extracts the boolean indices of valid tracks that start and end with a
+        cell split.
+
+    Args:
+        tracks: The tracks to check.
+
+    Returns:
+        The boolean indices of valid tracks that start and end with a cell
+            split.
+    """
+    ends_with_split = get_ids_that_ends_with_split(tracks)
+    is_parent = np.isin(tracks[:, 0], ends_with_split)
+    is_child = np.isin(tracks[:, 3], ends_with_split)
+    valid = np.logical_and(is_parent, is_child)
+    return valid
+
+
+def cca(comp_tracks: np.ndarray, ref_tracks: np.ndarray):
     """
     Computes the cell cycle accuracy. As described in the paper,
          "An objective comparison of cell-tracking algorithms."
@@ -17,41 +33,21 @@ def cca(
     Args:
         comp_tracks: The result tracks.
         ref_tracks: The ground truth tracks.
-        labels_ref: The labels of the ground truth masks.
-        labels_comp: The labels of the result masks.
-        mapped_ref: The matched labels of the ground truth masks.
-        mapped_comp: The matched labels of the result masks.
 
     Returns:
         The cell cycle accuracy metric.
     """
 
     # Extract relevant tracks with parents and children in reference
-    parents_ref, counts_ref = np.unique(ref_tracks[:, 3], return_counts=True)
-    counts_ref = counts_ref[parents_ref > 0]
-    parents_ref = parents_ref[parents_ref > 0]
-    ends_with_split_ref = parents_ref[counts_ref > 1]
-    is_parent_ref = np.isin(ref_tracks[:, 0], ends_with_split_ref)
-    is_child_ref = np.isin(ref_tracks[:, 3], ends_with_split_ref)
-    valid_ref = np.logical_and(is_parent_ref, is_child_ref)
-    track_lengths_ref = ref_tracks[:, 2] - ref_tracks[:, 1]
+    valid_ref = is_valid_track(ref_tracks)
     if np.sum(valid_ref) == 0:
         return None
-    track_lengths_ref = track_lengths_ref[valid_ref]
-
+    track_lengths_ref = ref_tracks[valid_ref, 2] - ref_tracks[valid_ref, 1]
     # Extract relevant tracks with parents and children in computed result
-    parents_comp, counts_comp = np.unique(comp_tracks[:, 3], return_counts=True)
-    counts_comp = counts_comp[parents_comp > 0]
-    parents_comp = parents_comp[parents_comp > 0]
-    ends_with_split_comp = parents_comp[counts_comp > 1]
-    is_parent_comp = np.isin(comp_tracks[:, 0], ends_with_split_comp)
-    is_child_comp = np.isin(comp_tracks[:, 3], ends_with_split_comp)
-    valid_comp = np.logical_and(is_parent_comp, is_child_comp)
-    track_lengths_comp = comp_tracks[:, 2] - comp_tracks[:, 1]
+    valid_comp = is_valid_track(comp_tracks)
     if np.sum(valid_comp) == 0:
         return 0
-    track_lengths_comp = track_lengths_comp[valid_comp]
-
+    track_lengths_comp = comp_tracks[valid_comp, 2] - comp_tracks[valid_comp, 1]
     # Calculate CCA
     max_track_length = np.max(
         [np.max(track_lengths_ref), np.max(track_lengths_comp)])
@@ -65,7 +61,4 @@ def cca(
         hist_comp[i] += 1
     hist_comp = hist_comp / np.sum(hist_comp)
     cum_hist_comp = np.cumsum(hist_comp)
-
-    cca = 1 - np.max(np.abs(cum_hist_ref - cum_hist_comp))
-
-    return float(cca)
+    return float(1 - np.max(np.abs(cum_hist_ref - cum_hist_comp)))

@@ -7,7 +7,44 @@ from ctc_metrics.utils.handle_results import print_results, store_results
 from ctc_metrics.utils.filesystem import parse_directories, read_tracking_file,\
     parse_masks
 from ctc_metrics.utils.representations import match as match_tracks, \
-    merge_tracks,count_acyclic_graph_correction_operations
+    count_acyclic_graph_correction_operations
+
+
+def match_computed_to_reference_masks(
+        ref_masks: list,
+        comp_masks: list,
+        multiprocessing: bool = True,
+):
+    """
+    Matches computed masks to reference masks.
+
+    Args:
+        ref_masks: The reference masks.
+        comp_masks: The computed masks.
+        multiprocessing: Whether to use multiprocessing (recommended!).
+
+    Returns:
+        The results stored in a dictionary.
+    """
+    labels_ref, labels_comp, mapped_ref, mapped_comp, ious = [], [], [], [], []
+    if multiprocessing:
+        with Pool(cpu_count()) as p:
+            matches = p.starmap(match_tracks, zip(ref_masks, comp_masks))
+    else:
+        matches = [match_tracks(*x) for x in zip(ref_masks, comp_masks)]
+    for match in matches:
+        labels_ref.append(match[0])
+        labels_comp.append(match[1])
+        mapped_ref.append(match[2])
+        mapped_comp.append(match[3])
+        ious.append(match[4])
+    return {
+        "labels_ref": labels_ref,
+        "labels_comp": labels_comp,
+        "mapped_ref": mapped_ref,
+        "mapped_comp": mapped_comp,
+        "ious": ious
+    }
 
 
 def evaluate_sequence(
@@ -15,7 +52,7 @@ def evaluate_sequence(
         gt: str,
         metrics: list = None,
         multiprocessing: bool = True,
-    ):
+    ):  # pylint: disable=too-complex
     """
     Evaluate a single sequence
 
@@ -28,102 +65,69 @@ def evaluate_sequence(
     Returns:
         The results stored in a dictionary.
     """
-    print("\r", res, end=": \n")
+    print("\r", res, end=": ")
+    # Verify all metrics
     if metrics is None:
-        """ Verify all metrics """
         metrics = ["Valid", "DET", "SEG", "TRA", "CT", "TF", "BC", "CCA"]
     # Read tracking files and parse mask files
-    res_tracks = read_tracking_file(join(res, "res_track.txt"))
-    gt_tracks = read_tracking_file(join(gt, "TRA", "man_track.txt"))
-    res_masks = parse_masks(res)
-    gt_tra_masks = parse_masks(join(gt, "TRA"))
-    gt_seg_masks = parse_masks(join(gt, "SEG"))
-    assert len(gt_tra_masks) > 0, res
-    assert len(gt_tra_masks) == len(res_masks)
-
+    comp_tracks = read_tracking_file(join(res, "res_track.txt"))
+    ref_tracks = read_tracking_file(join(gt, "TRA", "man_track.txt"))
+    comp_masks = parse_masks(res)
+    ref_tra_masks = parse_masks(join(gt, "TRA"))
+    ref_seg_masks = parse_masks(join(gt, "SEG"))
+    assert len(ref_tra_masks) > 0, res
+    assert len(ref_tra_masks) == len(comp_masks)
     # Match golden truth tracking masks to result masks
-    labels_gt_tra, labels_res_tra, mapped_gt_tra, mapped_res_tra, ious_tra = \
-        [], [], [], [], []
+    traj = {}
     if sorted(metrics) != ["CCA"]:
-        args = zip(gt_tra_masks, res_masks)
-        if multiprocessing:
-            with Pool(cpu_count()) as p:
-                matches = p.starmap(match_tracks, args)
-        else:
-            matches = [match_tracks(*x) for x in args]
-        for match in matches:
-            labels_gt_tra.append(match[0])
-            labels_res_tra.append(match[1])
-            mapped_gt_tra.append(match[2])
-            mapped_res_tra.append(match[3])
-            ious_tra.append(match[4])
-
+        traj = match_computed_to_reference_masks(
+            ref_tra_masks, comp_masks, multiprocessing=multiprocessing)
     # Match golden truth segmentation masks to result masks
-    _res_masks = [
-        res_masks[int(basename(x).replace("man_seg", "").replace(".tif", ""))]
-        for x in gt_seg_masks
-    ]
-    labels_gt_seg, labels_res_seg, mapped_gt_seg, mapped_res_seg, ious_seg = \
-        [], [], [], [], []
-    if sorted(metrics) != ["CCA"]:
-        args = zip(gt_seg_masks, _res_masks)
-        if multiprocessing:
-            with Pool(cpu_count()) as p:
-                matches = p.starmap(match_tracks, args)
-        else:
-            matches = [match_tracks(*x) for x in args]
-
-        for match in matches:
-            labels_gt_seg.append(match[0])
-            labels_res_seg.append(match[1])
-            mapped_gt_seg.append(match[2])
-            mapped_res_seg.append(match[3])
-            ious_seg.append(match[4])
-
-    # Prepare intermediate results
-    if "DET" in metrics or "TRA" in metrics:
-        NS, FN, FP, ED, EA, EC, num_vertices, num_edges = \
-            count_acyclic_graph_correction_operations(
-                gt_tracks, res_tracks,
-                labels_gt_tra, labels_res_tra, mapped_gt_tra, mapped_res_tra
-            )
-    else:
-        NS, FN, FP, ED, EA, EC, num_vertices, num_edges = \
-            None, None, None, None, None, None, None, None
-
-    original_tracks = [
-        res_tracks, gt_tracks, labels_gt_tra, labels_res_tra, mapped_gt_tra,
-        mapped_res_tra
-    ]
-
-    # Calculate metrics
-    results = dict()
-
-    if "Valid" in metrics:
-        results["Valid"] = valid(res_masks, res_tracks, labels_res_tra)
-    if "DET" in metrics:
-        results["DET"] = det(NS, FN, FP, num_vertices)
+    segm = {}
     if "SEG" in metrics:
-        SEG, SEG_TP, SEG_FN = seg(labels_gt_seg, ious_seg)
-        results["SEG"] = SEG
+        _res_masks = [
+            comp_masks[int(basename(x).replace(
+                "man_seg", "").replace(".tif", ""))]
+            for x in ref_seg_masks
+        ]
+        segm = match_computed_to_reference_masks(
+            ref_seg_masks, _res_masks, multiprocessing=multiprocessing)
+    # Prepare intermediate results
+    graph_operations = {}
+    if "DET" in metrics or "TRA" in metrics:
+        graph_operations = \
+            count_acyclic_graph_correction_operations(
+                ref_tracks, comp_tracks,
+                traj["labels_ref"], traj["labels_comp"],
+                traj["mapped_ref"], traj["mapped_comp"]
+            )
+    # Calculate metrics
+    results = {}
+    if "Valid" in metrics:
+        results["Valid"] = valid(comp_masks, comp_tracks, traj["labels_comp"])
+    if "DET" in metrics:
+        results["DET"] = det(**graph_operations)
+    if "SEG" in metrics:
+        results["SEG"], _, _ = seg(segm["labels_ref"], segm["ious"])
     if "TRA" in metrics:
-        results["TRA"] = tra(NS, FN, FP, ED, EA, EC, num_vertices, num_edges)
+        results["TRA"] = tra(**graph_operations)
     if "CT" in metrics:
-        results["CT"] = ct(*original_tracks)
+        results["CT"] = ct(
+            comp_tracks, ref_tracks,
+            traj["labels_ref"], traj["mapped_ref"], traj["mapped_comp"])
     if "TF" in metrics:
-        results["TF"] = tf(*original_tracks)
+        results["TF"] = tf(
+            ref_tracks,
+            traj["labels_ref"], traj["mapped_ref"], traj["mapped_comp"])
     if "BC" in metrics:
-        results["BC(0)"] = bc(*original_tracks, i=0)
-        results["BC(1)"] = bc(*original_tracks, i=1)
-        results["BC(2)"] = bc(*original_tracks, i=2)
-        results["BC(3)"] = bc(*original_tracks, i=3)
-        results["BC(4)"] = bc(*original_tracks, i=4)
-        results["BC(5)"] = bc(*original_tracks, i=5)
+        for i in range(6):
+            results[f"BC({i})"] = bc(
+                comp_tracks, ref_tracks,
+                traj["mapped_ref"], traj["mapped_comp"],
+                i=i)
     if "CCA" in metrics:
-        results["CCA"] = cca(*original_tracks)
-    #print("\r", end="")
+        results["CCA"] = cca(comp_tracks, ref_tracks)
     print(results)
-
     return results
 
 
@@ -143,28 +147,20 @@ def evaluate_all(
     Returns:
         The results stored in a dictionary.
     """
-    results = list()
-
+    results = []
     ret = parse_directories(res_root, gt_root)
     for res, gt, name in zip(*ret):
-        results.append(
-            [name, evaluate_sequence(res, gt, metrics)]
-        )
-
+        results.append([name, evaluate_sequence(res, gt, metrics)])
     return results
 
 
 def parse_args():
     """ Parse arguments """
-    # todo: Add help comments to all arguments
-    parser = argparse.ArgumentParser(
-        description='Evaluates CTC-Sequences. '
-    )
-
+    parser = argparse.ArgumentParser(description='Evaluates CTC-Sequences.')
     parser.add_argument('--res', type=str, required=True)
     parser.add_argument('--gt', type=str, required=True)
     parser.add_argument('-r', '--recursive', action="store_true")
-    parser.add_argument('--csv-path', type=str, default=None)
+    parser.add_argument('--csv-file', type=str, default=None)
     parser.add_argument('--valid', action="store_true")
     parser.add_argument('--det', action="store_true")
     parser.add_argument('--seg', action="store_true")
@@ -173,9 +169,7 @@ def parse_args():
     parser.add_argument('--tf', action="store_true")
     parser.add_argument('--bc', action="store_true")
     parser.add_argument('--cca', action="store_true")
-
     args = parser.parse_args()
-
     return args
 
 
@@ -184,34 +178,26 @@ def main():
     Main function that is called when the script is executed.
     """
     args = parse_args()
-
-    metrics = list()
-    if args.valid:
-        metrics.append("Valid")
-    if args.det:
-        metrics.append("DET")
-    if args.seg:
-        metrics.append("SEG")
-    if args.tra:
-        metrics.append("TRA")
-    if args.ct:
-        metrics.append("CT")
-    if args.tf:
-        metrics.append("TF")
-    if args.bc:
-        metrics.append("BC")
-    if args.cca:
-        metrics.append("CCA")
-    if len(metrics) == 0:
-        metrics = None
-
+    # Prepare metric selection
+    metrics = [metric for metric, flag in (
+        ("Valid", args.valid),
+        ("DET", args.det),
+        ("SEG", args.seg),
+        ("TRA", args.tra),
+        ("CT", args.ct),
+        ("TF", args.tf),
+        ("BC", args.bc),
+        ("CCA", args.cca)
+    ) if flag]
+    metrics = metrics if metrics else None
+    # Evaluate sequence or whole directory
     if args.recursive:
         res = evaluate_all(res_root=args.res, gt_root=args.gt, metrics=metrics)
     else:
         res = evaluate_sequence(res=args.res, gt=args.gt, metrics=metrics)
-
+    # Visualize and store results
     print_results(res)
-    if args.csv_path is not None:
+    if args.csv_file is not None:
         store_results(args.csv_path, res)
 
 

@@ -1,6 +1,13 @@
 
 def tra(
-    NS, FN, FP, ED, EA, EC, num_vertices, num_edges
+        NS: int,
+        FN: int,
+        FP: int,
+        ED: int,
+        EA: int,
+        EC: int,
+        num_vertices: int,
+        num_edges: int
 ):
     """
     Calculate Tracking (TRA) metric.
@@ -29,13 +36,10 @@ def tra(
     w_ed = 1
     w_ea = 1.5
     w_ec = 1
-
     AOGM = w_ns * NS + w_fn * FN + w_fp * FP + w_ed * ED + w_ea * EA + w_ec * EC
-
     # Calculate AOGM_0 (create graph from scratch)
     #   i.e, all vertices and edges are false negatives
     AOGM_0 = w_fn * num_vertices + w_ea * num_edges
-
     # Calculate DET
     TRA = 1 - min(AOGM, AOGM_0) / AOGM_0
     return float(TRA)

@@ -1,6 +1,6 @@
-from ctc_metrics import evaluate_sequence
-from test.utils import test_seq_res, test_seq_gt, test_det, test_seg,\
+from test.utils import test_seq_res, test_seq_gt, test_det, test_seg, \
     test_tra, test_ct, test_tf, test_bc0, test_bc1, test_bc2, test_bc3, test_cca
+from ctc_metrics import evaluate_sequence
 
 
 def test_metric_det():

@@ -5,8 +5,8 @@ import numpy as np
 
 
 def parse_directories(
-        input_dir,
-        gt_dir,
+        input_dir: str,
+        gt_dir: str = None,
 ):
     """
     Parses a directory and searches for challenges and their respective
@@ -46,11 +46,12 @@ def parse_directories(
                 else:
                     gt_dirs.append(None)
                 names.append(challenge + "_" + sequence)
-
     return res_dirs, gt_dirs, names
 
 
-def read_tracking_file(path):
+def read_tracking_file(
+        path: str,
+):
     """
     Reads a text file representing an acyclic graph for the whole video.
     Every line corresponds to a single track that is encoded by four numbers
@@ -70,26 +71,28 @@ def read_tracking_file(path):
     """
     if not exists(path):
         return None
-    with open(path, "r") as f:
+    with open(path, "r", encoding="utf-8") as f:
         lines = f.readlines()
     lines = [x.strip().split(" ") for x in lines]
     lines = [[int(y) for y in x] for x in lines]
     return np.array(lines)
 
 
-def parse_masks(dir):
+def parse_masks(
+        directory: str
+):
     """
     Reads all frame files in a directory and returns a list of frames.
 
     Args:
-        dir: The directory to read.
+        directory: The directory to read.
 
     Returns:
         A sorted list of frame paths.
     """
-    files = sorted(os.listdir(dir))
+    files = sorted(os.listdir(directory))
     files = [x for x in files if x.endswith(".tif")]
-    files = [join(dir, x) for x in files]
+    files = [join(directory, x) for x in files]
     files = sorted(files)
     return files
 

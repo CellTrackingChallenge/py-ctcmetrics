@@ -2,8 +2,8 @@ import numpy as np
 
 
 def seg(
-    labels_ref,
-    intersection_over_unions,
+        labels_ref: list,
+        intersection_over_unions: list,
 ):
     """
     Calculates the segmentation metric. The metric describes the average overlap
@@ -20,7 +20,7 @@ def seg(
         false negatives.
 
     """
-    number_of_reference_labels = np.sum([len(l) for l in labels_ref])
+    number_of_reference_labels = np.sum([len(x) for x in labels_ref])
     intersection_over_unions = np.concatenate(intersection_over_unions)
     true_positives = int(intersection_over_unions.size)
     false_negatives = int(number_of_reference_labels - true_positives)
