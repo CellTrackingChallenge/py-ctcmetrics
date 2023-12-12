@@ -7,7 +7,8 @@ def tra(
         EA: int,
         EC: int,
         num_vertices: int,
-        num_edges: int
+        num_edges: int,
+        **_ignored
 ):
     """
     Calculate Tracking (TRA) metric.
@@ -25,6 +26,7 @@ def tra(
         EC: Number of wrong edge semantics.
         num_vertices: Number of vertices in the graph.
         num_edges: Number of edges in the graph.
+        _ignored: Ignored arguments.
 
     Returns:
         The Tracking metric.

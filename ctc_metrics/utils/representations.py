@@ -89,11 +89,14 @@ def create_edge_mapping(
     vertices and semantic is the semantic label of the edge (0 for track link,
     1 for parent link).
 
-    :param tracks:
-    :param labels:
-    :param V_tp:
-    :param cum_inds:
-    :return:
+    Args:
+        tracks: The tracks.
+        labels: The labels of the ground truth masks.
+        V_tp: The detection test matrix.
+        cum_inds: The cumulative indices of the vertices per frame.
+
+    Returns:
+        The edge mapping.
     """
     all_edges = []
     # Add track links
@@ -130,36 +133,6 @@ def create_edge_mapping(
         )[None, :]
         all_edges.append(edges)
     return np.concatenate(all_edges, axis=0)
-
-
-def calculate_operations(
-        V_tp_r: np.ndarray,
-        V_fn_r: np.ndarray,
-        V_fp_c: np.ndarray,
-        V_vs_c: np.ndarray,
-        V_tp_c: np.ndarray,
-        num_V_R: int,
-        E_C_FP: np.ndarray,
-        E_C_CS: np.ndarray,
-        E_R: np.ndarray,
-        E_R_FN: np.ndarray,
-
-):
-    # Vertex operations
-    TP = np.sum(V_tp_r)
-    FN = np.sum(V_fn_r)
-    FP = np.sum(V_fp_c)
-    VS = np.sum(V_vs_c)
-    NS = TP - (np.sum(V_tp_c) + VS)
-    # Edge operations
-    ED = len(E_C_FP)
-    EA = len(E_R_FN)
-    EC = len(E_C_CS)
-    num_E_R = len(E_R)
-    return {
-        "NS": NS, "FN": FN, "FP": FP, "ED": ED, "EA": EA, "EC": EC,
-        "num_vertices": num_V_R, "num_edges": num_E_R
-    }
 
 
 def create_detection_test_matrix(
@@ -215,8 +188,8 @@ def count_acyclic_graph_correction_operations(
         Oriented Graphs; Matula etal. 2015
 
     Args:
-        ref_tracks: The result tracks.
-        comp_tracks: The ground truth tracks.
+        comp_tracks: The result tracks.
+        ref_tracks: The ground truth tracks.
         labels_ref: The labels of the ground truth masks.
         labels_comp: The labels of the result masks.
         mapped_ref: The matched labels of the ground truth masks.
@@ -226,43 +199,45 @@ def count_acyclic_graph_correction_operations(
         NS, FN, FP, ED, EA, EC, num_vertices, num_edges
     """
     # Count vertices in the input data
-    num_V_R = np.sum([len(l) for l in labels_ref])
-    num_V_C = np.sum([len(l) for l in labels_comp])
-
+    stats = {}
+    stats["num_vertices_R"] = np.sum([len(l) for l in labels_ref])
+    stats["num_vertices_C"] = np.sum([len(l) for l in labels_comp])
+    stats["num_vertices"] = stats["num_vertices_R"]
+    # Cumulate the number of vertices per frame
+    cum_inds_R = np.cumsum([0] + [len(l) for l in labels_ref])
+    cum_inds_C = np.cumsum([0] + [len(l) for l in labels_comp])
     # Perform "detection test"
     det_test = create_detection_test_matrix(
-        num_V_C, num_V_R, labels_ref, labels_comp, mapped_ref, mapped_comp)
-
+        stats["num_vertices_C"], stats["num_vertices_R"],
+        labels_ref, labels_comp, mapped_ref, mapped_comp
+    )
     # Classify vertices to tp, fp, fn and vs
-    assignments_r, assignments_c = (
-        np.sum(det_test, axis=0), np.sum(det_test, axis=1))
-
+    assignments_r = np.sum(det_test, axis=0)
+    assignments_c = np.sum(det_test, axis=1)
+    assert np.max(assignments_r) <= 1
     V_tp_r = assignments_r == 1
     V_tp_c = assignments_c == 1
-
+    stats["TP"] = np.sum(V_tp_r)
+    stats["FN"] = np.sum(~V_tp_r)
+    stats["FP"] = np.sum(assignments_c == 0)
+    stats["VS"] = np.sum(assignments_c > 1)
+    stats["NS"] = stats["TP"] - (np.sum(V_tp_c) + stats["VS"])
     # Mapping from reference to computed
     det_test[~V_tp_c, :] = 0
     comp, ref = det_test.nonzero()
     assert len(comp) == np.sum(V_tp_c)
-    comp_to_ref, ref_to_comp = \
-        np.zeros(num_V_C) * np.nan, np.zeros(num_V_R) * np.nan
+    comp_to_ref = np.zeros(stats["num_vertices_C"]) * np.nan
     comp_to_ref[comp] = ref
-    ref_to_comp[ref] = comp
     assert np.all(np.sort(comp) == comp)
-
     # Create edge mapping ...
     # ... for reference
-    E_R = create_edge_mapping(
-        ref_tracks, labels_ref, V_tp_r,
-        np.cumsum([0] + [len(l) for l in labels_ref]))
+    E_R = create_edge_mapping(ref_tracks, labels_ref, V_tp_r, cum_inds_R)
     # ... for computed
-    E_C = create_edge_mapping(
-        comp_tracks, labels_comp, V_tp_c,
-        np.cumsum([0] + [len(l) for l in labels_comp]))
-
-    # Create the induced subgraph with only uniquely matched vertices
+    E_C = create_edge_mapping(comp_tracks, labels_comp, V_tp_c, cum_inds_C)
+    # Reduce the computed graph to an induced subgraph with only uniquely
+    #   matched vertices
     E_C = E_C[(E_C[:, 2] * E_C[:, 6]) == 1]
-    # Add mapping to Reference graph such that E_C_sub is:
+    # Add mapping to Reference graph such that E_C is:
     #    ind1,id1,det_tst1,t1,ind2,id2,det_test2,t2,sem,ind1_R,ind2_R
     E_C = np.concatenate([
         E_C,
@@ -270,27 +245,25 @@ def count_acyclic_graph_correction_operations(
         comp_to_ref[E_C[:, 4]][:, None].astype(int)
     ], axis=1)
     assert not np.any(np.isnan(E_C))
-
     # Map the edges to edges
-    unique_edge_ids_R = E_R[:, 0] * 10 ** len(str(num_V_R)) + E_R[:, 4]
-    unique_edge_ids_C = E_C[:, 9] * 10 ** len(str(num_V_R)) + E_C[:, 10]
+    unique_edge_ids_R = (E_R[:, 0] * 10 ** len(str(stats["num_vertices_R"]))
+                         + E_R[:, 4])
+    unique_edge_ids_C = (E_C[:, 9] * 10 ** len(str(stats["num_vertices_R"]))
+                         + E_C[:, 10])
     assert np.max(np.unique(unique_edge_ids_R, return_counts=True)[1]) == 1
     assert np.max(np.unique(unique_edge_ids_C, return_counts=True)[1]) == 1
     isin_R = np.isin(unique_edge_ids_C, unique_edge_ids_R)
     isin_C = np.isin(unique_edge_ids_R, unique_edge_ids_C)
-    E_R_m = E_R[isin_C][np.argsort(unique_edge_ids_R[isin_C])]
-    E_C_m = E_C[isin_R]
-    E_C_m = E_C_m[np.argsort(unique_edge_ids_C[isin_R])]
-
-    return calculate_operations(
-        V_tp_r, ~V_tp_r,
-        assignments_c == 1, assignments_c == 0, assignments_c > 1,
-        num_V_R,
-        E_C[~isin_R],
-        E_C_m[E_C_m[:, 8] != E_R_m[:, 8]],
-        E_R_m,
-        E_R[~isin_C]
-    )
+    E_R_mapped = E_R[isin_C]
+    E_C_mapped = E_C[isin_R]
+    E_R_mapped = E_R_mapped[np.argsort(unique_edge_ids_R[isin_C])]
+    E_C_mapped = E_C_mapped[np.argsort(unique_edge_ids_C[isin_R])]
+    # Calculate relevant edge statistics
+    stats["ED"] = len(E_C[~isin_R])
+    stats["EA"] = np.sum(~isin_C)
+    stats["EC"] = len(E_C_mapped[E_C_mapped[:, 8] != E_R_mapped[:, 8]])
+    stats["num_edges"] = len(E_R)
+    return stats
 
 
 def assign_comp_to_ref(
