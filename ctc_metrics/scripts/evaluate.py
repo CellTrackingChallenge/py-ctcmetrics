@@ -65,7 +65,7 @@ def evaluate_sequence(
     Returns:
         The results stored in a dictionary.
     """
-    print("\r", res, end=": ")
+    # print("\r", res, end=": ")
     # Verify all metrics
     if metrics is None:
         metrics = ["Valid", "DET", "SEG", "TRA", "CT", "TF", "BC", "CCA"]
@@ -127,7 +127,7 @@ def evaluate_sequence(
                 i=i)
     if "CCA" in metrics:
         results["CCA"] = cca(comp_tracks, ref_tracks)
-    print(results)
+    # print(results)
     return results
 
 

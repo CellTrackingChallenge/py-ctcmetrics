@@ -23,7 +23,7 @@ def validate_sequence(
     Returns:
         The results stored in a dictionary.
     """
-    print("\r", res, end="")
+    # print("\r", res, end="")
     res_tracks = read_tracking_file(join(res, "res_track.txt"))
     res_masks = parse_masks(res)
     assert len(res_masks) > 0, res
@@ -40,7 +40,7 @@ def validate_sequence(
         mapped_gt.append(match[2])
         mapped_res.append(match[3])
     results = {"Valid": valid(res_masks, res_tracks, labels_res)}
-    print("\r", end="")
+    # print("\r", end="")
     return results
 
 
