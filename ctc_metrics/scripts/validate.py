@@ -59,6 +59,7 @@ def validate_all(
     results = []
     ret = parse_directories(res_root, None)
     for res, gt, name in zip(*ret):
+        print("\r", res, end=": ")
         results.append([name, validate_sequence(res, gt)])
     return results
 
@@ -80,6 +81,7 @@ def main():
     if args.recursive:
         res = validate_all(args.res)
     else:
+        print("\r", args.res, end=": ")
         res = validate_sequence(args.res)
     print_results(res)
 

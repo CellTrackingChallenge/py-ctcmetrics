@@ -150,6 +150,7 @@ def evaluate_all(
     results = []
     ret = parse_directories(res_root, gt_root)
     for res, gt, name in zip(*ret):
+        print("\r", res, end=": ")
         results.append([name, evaluate_sequence(res, gt, metrics)])
     return results
 
@@ -194,6 +195,7 @@ def main():
     if args.recursive:
         res = evaluate_all(res_root=args.res, gt_root=args.gt, metrics=metrics)
     else:
+        print("\r", args.res, end=": ")
         res = evaluate_sequence(res=args.res, gt=args.gt, metrics=metrics)
     # Visualize and store results
     print_results(res)
