@@ -68,7 +68,7 @@ ctc_validate --res "/ctc/train/challenge_x/01_RES"
 Moreover, you can recursively validate the tracking results for all 
 challenges/sequences in a directory by adding the flag ```-r```:
 ```bash
-ctc_validate --res <path/to/res> -r
+ctc_validate --res "/ctc/train" -r
 ```
 In this example, all four sequences will be validated.
 
