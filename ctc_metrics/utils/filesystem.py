@@ -74,7 +74,7 @@ def read_tracking_file(
     with open(path, "r", encoding="utf-8") as f:
         lines = f.readlines()
     lines = [x.strip().split(" ") for x in lines]
-    lines = [[int(y) for y in x] for x in lines]
+    lines = [[int(y) for y in x if y != ""] for x in lines]
     return np.array(lines)
 
 
@@ -95,5 +95,3 @@ def parse_masks(
     files = [join(directory, x) for x in files]
     files = sorted(files)
     return files
-
-
