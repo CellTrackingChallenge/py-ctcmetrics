@@ -74,9 +74,10 @@ def evaluate_sequence(
     ref_tracks = read_tracking_file(join(gt, "TRA", "man_track.txt"))
     comp_masks = parse_masks(res)
     ref_tra_masks = parse_masks(join(gt, "TRA"))
-    ref_seg_masks = parse_masks(join(gt, "SEG"))
-    assert len(ref_tra_masks) > 0, res
-    assert len(ref_tra_masks) == len(comp_masks)
+    assert len(ref_tra_masks) > 0, f"{res}: Ground truth masks is 0!)"
+    assert len(ref_tra_masks) == len(comp_masks), (
+        f"{res}: Number of result masks ({len(comp_masks)}) unequal to "
+        f"the number of ground truth masks ({len(ref_tra_masks)})!)")
     # Match golden truth tracking masks to result masks
     traj = {}
     if sorted(metrics) != ["CCA"]:
@@ -85,6 +86,7 @@ def evaluate_sequence(
     # Match golden truth segmentation masks to result masks
     segm = {}
     if "SEG" in metrics:
+        ref_seg_masks = parse_masks(join(gt, "SEG"))
         _res_masks = [
             comp_masks[int(basename(x).replace(
                 "man_seg", "").replace(".tif", ""))]
