@@ -1,3 +1,5 @@
+import os.path
+
 import numpy as np
 import tifffile as tiff
 from sklearn.metrics import confusion_matrix
@@ -30,8 +32,25 @@ def match(
     if ref_path is None:
         # For trivial cases where only one mask should be analysed
         ref_path = comp_path
-    map_ref = tiff.imread(ref_path)
-    map_com = tiff.imread(comp_path)
+    if os.path.exists(ref_path):
+        # No slices
+        map_ref = tiff.imread(ref_path)
+        map_com = tiff.imread(comp_path)
+    else:
+        # Slices in 3D dataset segmentation data
+        dirname, base = os.path.dirname(ref_path), os.path.basename(ref_path)
+        base = base.replace(".tif", "")
+        slice_files = [x for x in os.listdir(dirname) if
+                 x.endswith(".tif") and x.startswith(base)]
+        slice_files = sorted(slice_files)
+        map_ref = [tiff.imread(os.path.join(dirname, x)) for x in slice_files]
+        map_ref = np.stack(map_ref, axis=0)
+        slices = [x.replace(base+"_", "").replace(".tif", "")
+                  for x in slice_files]
+        slices = [int(x) for x in slices]
+        map_com = tiff.imread(comp_path)
+        _map_com = [map_com[x] for x in slices]
+        map_com = np.stack(_map_com, axis=0)
     # Get the labels of the two masks (including background label 0)
     labels_ref, labels_comp = np.unique(map_ref), np.unique(map_com)
     if ref_path == comp_path:
