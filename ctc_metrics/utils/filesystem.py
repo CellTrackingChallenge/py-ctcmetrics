@@ -98,6 +98,6 @@ def parse_masks(
             # This is a 3D mask file with slices. Remove the slice number.
             x = "_".join(x.split("_")[0:3]) + ".tif"
         if x not in _files:
-            _files.append(x)
+            _files.append(join(directory, x))
     files = sorted(_files)
     return files
