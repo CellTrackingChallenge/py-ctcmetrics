@@ -92,6 +92,12 @@ def parse_masks(
     """
     files = sorted(os.listdir(directory))
     files = [x for x in files if x.endswith(".tif")]
-    files = [join(directory, x) for x in files]
-    files = sorted(files)
+    _files = []
+    for x in files:
+        if x.count("_") == 3:
+            # This is a 3D mask file with slices. Remove the slice number.
+            x = "_".join(x.split("_")[0:3]) + ".tif"
+        if x not in _files:
+            _files.append(join(directory, x))
+    files = sorted(_files)
     return files

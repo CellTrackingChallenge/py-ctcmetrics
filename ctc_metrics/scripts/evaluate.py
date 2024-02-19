@@ -89,7 +89,7 @@ def evaluate_sequence(
         ref_seg_masks = parse_masks(join(gt, "SEG"))
         _res_masks = [
             comp_masks[int(basename(x).replace(
-                "man_seg", "").replace(".tif", ""))]
+                "man_seg", "").replace(".tif", "").replace("_", ""))]
             for x in ref_seg_masks
         ]
         segm = match_computed_to_reference_masks(
