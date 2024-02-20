@@ -109,7 +109,7 @@ def create_edge_mapping(
     1 for parent link).
 
     Args:
-        tracks: The tracks.
+        tracks: The tracks. If None, no edges will be created
         labels: The labels of the ground truth masks.
         V_tp: The detection test matrix.
         cum_inds: The cumulative indices of the vertices per frame.
@@ -117,6 +117,8 @@ def create_edge_mapping(
     Returns:
         The edge mapping.
     """
+    if tracks is None:
+        return np.zeros((0, 9))
     all_edges = []
     # Add track links
     ind_v = 0
@@ -253,6 +255,14 @@ def count_acyclic_graph_correction_operations(
     E_R = create_edge_mapping(ref_tracks, labels_ref, V_tp_r, cum_inds_R)
     # ... for computed
     E_C = create_edge_mapping(comp_tracks, labels_comp, V_tp_c, cum_inds_C)
+    # Stop calculation if no edges are present in the computed graph (e.g. if
+    #   only segmentation is present)
+    if E_C.size == 0:
+        stats["ED"] = 0
+        stats["EA"] = len(E_R)
+        stats["EC"] = 0
+        stats["num_edges"] = len(E_R)
+        return stats
     # Reduce the computed graph to an induced subgraph with only uniquely
     #   matched vertices
     E_C = E_C[(E_C[:, 2] * E_C[:, 6]) == 1]
