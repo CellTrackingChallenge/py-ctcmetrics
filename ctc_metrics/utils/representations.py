@@ -1,3 +1,5 @@
+import os.path
+
 import numpy as np
 import tifffile as tiff
 from sklearn.metrics import confusion_matrix
@@ -30,8 +32,25 @@ def match(
     if ref_path is None:
         # For trivial cases where only one mask should be analysed
         ref_path = comp_path
-    map_ref = tiff.imread(ref_path)
-    map_com = tiff.imread(comp_path)
+    if os.path.exists(ref_path):
+        # No slices
+        map_ref = tiff.imread(ref_path)
+        map_com = tiff.imread(comp_path)
+    else:
+        # Slices in 3D dataset segmentation data
+        dirname, base = os.path.dirname(ref_path), os.path.basename(ref_path)
+        base = base.replace(".tif", "")
+        slice_files = [x for x in os.listdir(dirname) if
+                 x.endswith(".tif") and x.startswith(base)]
+        slice_files = sorted(slice_files)
+        map_ref = [tiff.imread(os.path.join(dirname, x)) for x in slice_files]
+        map_ref = np.stack(map_ref, axis=0)
+        slices = [x.replace(base+"_", "").replace(".tif", "")
+                  for x in slice_files]
+        slices = [int(x) for x in slices]
+        map_com = tiff.imread(comp_path)
+        _map_com = [map_com[x] for x in slices]
+        map_com = np.stack(_map_com, axis=0)
     # Get the labels of the two masks (including background label 0)
     labels_ref, labels_comp = np.unique(map_ref), np.unique(map_com)
     if ref_path == comp_path:
@@ -90,7 +109,7 @@ def create_edge_mapping(
     1 for parent link).
 
     Args:
-        tracks: The tracks.
+        tracks: The tracks. If None, no edges will be created
         labels: The labels of the ground truth masks.
         V_tp: The detection test matrix.
         cum_inds: The cumulative indices of the vertices per frame.
@@ -98,6 +117,8 @@ def create_edge_mapping(
     Returns:
         The edge mapping.
     """
+    if tracks is None:
+        return np.zeros((0, 9))
     all_edges = []
     # Add track links
     ind_v = 0
@@ -234,6 +255,14 @@ def count_acyclic_graph_correction_operations(
     E_R = create_edge_mapping(ref_tracks, labels_ref, V_tp_r, cum_inds_R)
     # ... for computed
     E_C = create_edge_mapping(comp_tracks, labels_comp, V_tp_c, cum_inds_C)
+    # Stop calculation if no edges are present in the computed graph (e.g. if
+    #   only segmentation is present)
+    if E_C.size == 0:
+        stats["ED"] = 0
+        stats["EA"] = len(E_R)
+        stats["EC"] = 0
+        stats["num_edges"] = len(E_R)
+        return stats
     # Reduce the computed graph to an induced subgraph with only uniquely
     #   matched vertices
     E_C = E_C[(E_C[:, 2] * E_C[:, 6]) == 1]
