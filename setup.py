@@ -11,6 +11,7 @@ setup(
         "scipy>=1.11.2",
         "tifffile>=2023.8.30",
         "imagecodecs>=2023.9.4",
+        "pandas>=2.2.1"
     ],
     author="Timo Kaiser",
     author_email="kaiser@tnt.uni-hannover.de",
