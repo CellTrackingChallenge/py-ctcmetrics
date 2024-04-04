@@ -1,9 +1,53 @@
+import copy
 import os.path
 
 import numpy as np
 import tifffile as tiff
 from sklearn.metrics import confusion_matrix
 from scipy.sparse import lil_array
+
+
+def track_confusion_matrix(
+        labels_ref: list,
+        labels_comp: list,
+        mapped_ref: list,
+        mapped_comp: list
+):
+    """
+    Computes the confusion matrix for the input data.
+
+    Args:
+        labels_ref: The labels of the ground truth masks.
+        labels_comp: The labels of the result masks.
+        mapped_ref: The matched labels of the ground truth masks.
+        mapped_comp: The matched labels of the result masks.
+
+    Returns:
+        The confusion matrix. The size if the confusion matrix is
+            max_label_ref + 1 x max_label_comp + 1
+        where [:, 0] contains the false negatives and [0, :] contains the
+        false positives. The rest of the matrix contains the true positives.
+
+    """
+    max_label_ref = int(np.max(np.concatenate(labels_ref)))
+    max_label_comp = int(np.max(np.concatenate(labels_comp)))
+
+    # Gather association data
+    track_intersection = np.zeros((max_label_ref + 1, max_label_comp + 1))
+
+    for ref, comp, m_ref, m_comp in zip(
+            labels_ref, labels_comp, mapped_ref, mapped_comp):
+        # Fill track intersection matrix
+        ref = np.asarray(ref)
+        comp = np.asarray(comp)
+        if len(m_ref) > 0:
+            track_intersection[m_ref, m_comp] += 1
+        fna = ref[np.isin(ref, m_ref, invert=True)]
+        track_intersection[fna, 0] += 1
+        fpa = comp[np.isin(comp, m_comp, invert=True)]
+        track_intersection[0, fpa] += 1
+
+    return track_intersection
 
 
 def match(
@@ -55,9 +99,11 @@ def match(
     labels_ref, labels_comp = np.unique(map_ref), np.unique(map_com)
     if ref_path == comp_path:
         # For trivial cases where only one mask should be analysed
-        iou = np.ones(len(labels_ref))
-        return labels_ref.tolist(), labels_comp.tolist(), labels_ref.tolist(),\
-            labels_comp.tolist(), iou.tolist()
+        iou = np.ones(len(labels_ref)).tolist()
+        labels_ref = labels_ref[labels_ref > 0].tolist()
+        labels_comp = labels_comp[labels_comp > 0].tolist()
+        return (labels_ref, labels_comp,
+                copy.deepcopy(labels_ref), copy.deepcopy(labels_comp), iou)
     # Add offset to separate the labels of the two masks
     offset = int(np.max(labels_ref) + 1)
     map_com += offset
@@ -332,3 +378,79 @@ def assign_comp_to_ref(
                 track_assignments[i][frame] = 0
         frame += 1
     return track_assignments
+
+
+def merge_tracks(
+        tracks,
+        labels,
+        mapped
+):
+    """
+    Merges tracks that belong to the same cell trajectory. This can happen, if
+    a cell is invisible for a few frames and the tracking algorithm splits the
+    track into two or more tracks. The resulting data is a relabelled version
+    of the input data.
+
+    Args:
+        tracks: The tracks.
+        labels: The labels of the masks.
+        mapped: The matched labels of the masks.
+
+    Returns:
+        As input data, but relabelled.
+    """
+    tracks = np.copy(tracks)
+    labels = [np.copy(x) for x in labels]
+    mapped = [np.copy(x) for x in mapped]
+
+    # Find tracks that belong together
+    parents, cnts = np.unique(tracks[tracks[:, 3] > 0, 3], return_counts=True)
+    parents = parents[cnts == 1].tolist()
+    children = [tracks[tracks[:, 3] == p][0, 0] for p in parents]
+
+    # Merge tracks
+    need_to_merge = len(children) > 0
+    mapping = {x: x for x in np.unique(tracks[:, 0])}
+    while len(children) > 0:
+        for parent, child in zip(parents, children):
+            if parent not in children:
+                break
+        mapping[child] = mapping[parent]
+        children.remove(child)
+        parents.remove(parent)
+
+    # Relabel such that the labels are continuous
+    remaining_labels = sorted(np.unique([x for x in mapping.values()]))
+    new_labels = list(range(1, len(remaining_labels) + 1))
+    for k, v in mapping.items():
+        new_v = new_labels[remaining_labels.index(v)]
+        mapping[k] = new_v
+
+    lut = np.zeros(np.max(list(mapping.keys())) + 1, dtype=int)
+    for k, v in mapping.items():
+        lut[k] = v
+
+    # Relabel tracks
+    new_tracks = np.copy(tracks)
+    for k, v in mapping.items():
+        new_tracks[tracks[:, 0] == k, 0] = v
+        new_tracks[tracks[:, 3] == k, 3] = v
+    ids, counts = np.unique(new_tracks[:, 0], return_counts=True)
+    ids = ids[counts > 1]
+    for i in ids:
+        inds = np.argwhere(new_tracks[:, 0] == i).flatten()
+        start = np.min(new_tracks[inds, 1])
+        end = np.max(new_tracks[inds, 2])
+        new_tracks[inds, 1] = start
+        new_tracks[inds, 2] = end
+        new_tracks = np.delete(new_tracks, inds[1:], axis=0)
+
+    # Relabel labels and mapped
+    new_labels = [[lut[x] for x in i] for i in labels]
+    new_mapped = [[lut[x] for x in i] for i in mapped]
+
+    return new_tracks, new_labels, new_mapped
+
+
+
+
