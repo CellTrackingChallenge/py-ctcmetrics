@@ -13,7 +13,7 @@ from ctc_metrics.utils.representations import match as match_tracks, \
 def match_computed_to_reference_masks(
         ref_masks: list,
         comp_masks: list,
-        multiprocessing: bool = True,
+        threads: int = 0,
 ):
     """
     Matches computed masks to reference masks.
@@ -21,14 +21,17 @@ def match_computed_to_reference_masks(
     Args:
         ref_masks: The reference masks.
         comp_masks: The computed masks.
-        multiprocessing: Whether to use multiprocessing (recommended!).
+        threads: The number of threads to use. If 0, the number of threads
+            is set to the number of available CPUs.
 
     Returns:
         The results stored in a dictionary.
     """
     labels_ref, labels_comp, mapped_ref, mapped_comp, ious = [], [], [], [], []
-    if multiprocessing:
-        with Pool(cpu_count()) as p:
+    if threads != 1:
+        if threads == 0:
+            threads = cpu_count()
+        with Pool(threads) as p:
             matches = p.starmap(match_tracks, zip(ref_masks, comp_masks))
     else:
         matches = [match_tracks(*x) for x in zip(ref_masks, comp_masks)]
@@ -51,7 +54,7 @@ def evaluate_sequence(
         res: str,
         gt: str,
         metrics: list = None,
-        multiprocessing: bool = True,
+        threads: int = 0,
     ):  # pylint: disable=too-complex
     """
     Evaluate a single sequence
@@ -61,6 +64,8 @@ def evaluate_sequence(
         gt: The path to the ground truth.
         metrics: The metrics to evaluate.
         multiprocessing: Whether to use multiprocessing (recommended!).
+        threads: The number of threads to use. If 0, the number of threads
+            is set to the number of available CPUs.
 
     Returns:
         The results stored in a dictionary.
@@ -82,7 +87,7 @@ def evaluate_sequence(
     traj = {}
     if sorted(metrics) != ["CCA"]:
         traj = match_computed_to_reference_masks(
-            ref_tra_masks, comp_masks, multiprocessing=multiprocessing)
+            ref_tra_masks, comp_masks, threads=threads)
     # Match golden truth segmentation masks to result masks
     segm = {}
     if "SEG" in metrics:
@@ -93,7 +98,7 @@ def evaluate_sequence(
             for x in ref_seg_masks
         ]
         segm = match_computed_to_reference_masks(
-            ref_seg_masks, _res_masks, multiprocessing=multiprocessing)
+            ref_seg_masks, _res_masks, threads=threads)
     # Prepare intermediate results
     graph_operations = {}
     if "DET" in metrics or "TRA" in metrics:
@@ -137,6 +142,7 @@ def evaluate_all(
         res_root: str,
         gt_root: str,
         metrics: list = None,
+        threads: int = 0
     ):
     """
     Evaluate all sequences in a directory
@@ -145,6 +151,8 @@ def evaluate_all(
         res_root: The root directory of the results.
         gt_root: The root directory of the ground truth.
         metrics: The metrics to evaluate.
+        threads: The number of threads to use. If 0, the number of threads
+            is set to the number of available CPUs.
 
     Returns:
         The results stored in a dictionary.
@@ -152,7 +160,7 @@ def evaluate_all(
     results = []
     ret = parse_directories(res_root, gt_root)
     for res, gt, name in zip(*ret):
-        results.append([name, evaluate_sequence(res, gt, metrics)])
+        results.append([name, evaluate_sequence(res, gt, metrics, threads)])
     return results
 
 
@@ -163,6 +171,7 @@ def parse_args():
     parser.add_argument('--gt', type=str, required=True)
     parser.add_argument('-r', '--recursive', action="store_true")
     parser.add_argument('--csv-file', type=str, default=None)
+    parser.add_argument('-n', '--num-threads', type=int, default=0)
     parser.add_argument('--valid', action="store_true")
     parser.add_argument('--det', action="store_true")
     parser.add_argument('--seg', action="store_true")
@@ -194,9 +203,13 @@ def main():
     metrics = metrics if metrics else None
     # Evaluate sequence or whole directory
     if args.recursive:
-        res = evaluate_all(res_root=args.res, gt_root=args.gt, metrics=metrics)
+        res = evaluate_all(
+            res_root=args.res, gt_root=args.gt, metrics=metrics,
+            threads=args.num_threads
+        )
     else:
-        res = evaluate_sequence(res=args.res, gt=args.gt, metrics=metrics)
+        res = evaluate_sequence(
+            res=args.res, gt=args.gt, metrics=metrics, threads=args.num_threads)
     # Visualize and store results
     print_results(res)
     if args.csv_file is not None:

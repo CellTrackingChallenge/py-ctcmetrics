@@ -83,15 +83,23 @@ or recursively for all sequences in a directory:
 ```bash
 ctc_evaluate --gt "/ctc/train" --res "/ctc/train" -r
 ```
+Per default, the code executes using multiple threads with one thread per 
+available CPU core. The number of threads can be specified with the argument 
+```--num-threads``` or ```-n```:
+```bash
+ctc_evaluate --gt "/ctc/train" --res "/ctc/train" -r -n 4
+```
+
 There are additional arguments that can be used to specify the evaluation. The
 following table shows the available arguments:
 
-| Argument    | Description                                         | Default |
-|-------------|-----------------------------------------------------| --- |
-| --gt        | Path to the ground truth directory                  | None |
-| --res       | Path to the results directory                       | None |
-| --recursive | Recursively evaluate all sequences in the directory | False |
-| --csv-file  | Path to a csv file to save the results              | None |
+| Argument      | Description                                         | Default |
+|---------------|-----------------------------------------------------| --- |
+| --gt          | Path to the ground truth directory                  | None |
+| --res         | Path to the results directory                       | None |
+| --recursive   | Recursively evaluate all sequences in the directory | False |
+| --csv-file    | Path to a csv file to save the results              | None |
+| --num-threads | Number of threads to use for evaluation             | 1    |
 
 Per default, all metrics are evaluated. Additional arguments to select a subset 
 of specific metrics are:
