@@ -136,6 +136,16 @@ print(res["TRA"])
     
 ```
 
+
+## Notes
+
+- If you only have segmentation results and want to evaluate the *SEG* metric,
+it is important that you pass the *--seg* flag to the evaluation command. 
+Otherwise, the code could flag your input as invalid, because the 
+*res_track.txt* file is missing or inconsistent.
+
+```bash
+
 ## Contributing
 
 Contributions are welcome! For bug reports or requests please
