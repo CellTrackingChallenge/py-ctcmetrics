@@ -83,7 +83,7 @@ def evaluate_sequence(
     # Match golden truth tracking masks to result masks
     traj = {}
     is_valid = None
-    if sorted(metrics) != ["CCA"]:
+    if sorted(metrics) != ["SEG"]:
         comp_masks = [
             join(res, "mask" + basename(x).replace(
                 "man_track", "").replace(".tif", "").replace("_", "") + ".tif")
