@@ -121,7 +121,7 @@ def evaluate_sequence(
     if "DET" in metrics:
         results["DET"] = det(**graph_operations)
     if "SEG" in metrics:
-        results["SEG"], _, _ = seg(segm["labels_ref"], segm["ious"])
+        results["SEG"] = seg(segm["labels_ref"], segm["ious"])
     if "TRA" in metrics:
         results["TRA"] = tra(**graph_operations)
     if "CT" in metrics:
