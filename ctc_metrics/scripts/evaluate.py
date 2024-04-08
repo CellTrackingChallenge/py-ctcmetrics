@@ -115,7 +115,12 @@ def evaluate_sequence(
                 traj["mapped_ref"], traj["mapped_comp"]
             )
     # Calculate metrics
-    results = {}
+    results = {x: None for x in metrics}
+    if not is_valid:
+        print("Invalid results!")
+        results["Valid"] = 0
+        return results
+
     if "Valid" in metrics:
         results["Valid"] = is_valid
     if "DET" in metrics:
