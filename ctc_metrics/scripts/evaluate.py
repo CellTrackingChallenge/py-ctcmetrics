@@ -1,5 +1,6 @@
 import argparse
-from os.path import join, basename
+
+from os.path import join, basename, exists
 from multiprocessing import Pool, cpu_count
 
 from ctc_metrics.metrics import valid, det, seg, tra, ct, tf, bc, cca
@@ -77,28 +78,33 @@ def evaluate_sequence(
     # Read tracking files and parse mask files
     comp_tracks = read_tracking_file(join(res, "res_track.txt"))
     ref_tracks = read_tracking_file(join(gt, "TRA", "man_track.txt"))
-    comp_masks = parse_masks(res)
     ref_tra_masks = parse_masks(join(gt, "TRA"))
     assert len(ref_tra_masks) > 0, f"{res}: Ground truth masks is 0!)"
-    assert len(ref_tra_masks) == len(comp_masks), (
-        f"{res}: Number of result masks ({len(comp_masks)}) unequal to "
-        f"the number of ground truth masks ({len(ref_tra_masks)})!)")
     # Match golden truth tracking masks to result masks
     traj = {}
+    is_valid = None
     if sorted(metrics) != ["CCA"]:
+        comp_masks = [
+            join(res, "mask" + basename(x).replace(
+                "man_track", "").replace(".tif", "").replace("_", "") + ".tif")
+            for x in ref_tra_masks
+        ]
+        comp_masks = [x if exists(x) else None for x in comp_masks]
         traj = match_computed_to_reference_masks(
             ref_tra_masks, comp_masks, threads=threads)
+        is_valid = valid(comp_masks, comp_tracks, traj["labels_comp"])
     # Match golden truth segmentation masks to result masks
     segm = {}
     if "SEG" in metrics:
         ref_seg_masks = parse_masks(join(gt, "SEG"))
-        _res_masks = [
-            comp_masks[int(basename(x).replace(
-                "man_seg", "").replace(".tif", "").replace("_", ""))]
+        comp_masks = [
+            join(res, "mask" + basename(x).replace(
+                "man_seg", "").replace(".tif", "").replace("_", "") + ".tif")
             for x in ref_seg_masks
         ]
+        comp_masks = [x if exists(x) else None for x in comp_masks]
         segm = match_computed_to_reference_masks(
-            ref_seg_masks, _res_masks, threads=threads)
+            ref_seg_masks, comp_masks, threads=threads)
     # Prepare intermediate results
     graph_operations = {}
     if "DET" in metrics or "TRA" in metrics:
@@ -111,7 +117,7 @@ def evaluate_sequence(
     # Calculate metrics
     results = {}
     if "Valid" in metrics:
-        results["Valid"] = valid(comp_masks, comp_tracks, traj["labels_comp"])
+        results["Valid"] = is_valid
     if "DET" in metrics:
         results["DET"] = det(**graph_operations)
     if "SEG" in metrics:
