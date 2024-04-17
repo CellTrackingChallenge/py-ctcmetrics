@@ -1,4 +1,3 @@
-import copy
 import os.path
 
 import numpy as np
@@ -73,6 +72,11 @@ def match(
         label pair.
     """
     # Read the input data
+    if comp_path is None:
+        map_ref = tiff.imread(ref_path)
+        labels_ref = np.unique(map_ref)
+        labels_ref = labels_ref[labels_ref != 0]
+        return labels_ref.tolist(), [], [], [], []
     if ref_path is None:
         # For trivial cases where only one mask should be analysed
         ref_path = comp_path
@@ -99,11 +103,11 @@ def match(
     labels_ref, labels_comp = np.unique(map_ref), np.unique(map_com)
     if ref_path == comp_path:
         # For trivial cases where only one mask should be analysed
-        iou = np.ones(len(labels_ref)).tolist()
-        labels_ref = labels_ref[labels_ref > 0].tolist()
-        labels_comp = labels_comp[labels_comp > 0].tolist()
-        return (labels_ref, labels_comp,
-                copy.deepcopy(labels_ref), copy.deepcopy(labels_comp), iou)
+        iou = np.ones(len(labels_ref))
+        labels_ref = labels_ref[labels_ref != 0]
+        labels_comp = labels_comp[labels_comp != 0]
+        return labels_ref.tolist(), labels_comp.tolist(), labels_ref.tolist(),\
+            labels_comp.tolist(), iou.tolist()
     # Add offset to separate the labels of the two masks
     offset = int(np.max(labels_ref) + 1)
     map_com += offset
@@ -199,7 +203,7 @@ def create_edge_mapping(
             [ind1, label1, det_test1, t1, ind2, label2, det_test2, t2, 1]
         )[None, :]
         all_edges.append(edges)
-    return np.concatenate(all_edges, axis=0)
+    return np.concatenate(all_edges, axis=0).astype(int)
 
 
 def create_detection_test_matrix(

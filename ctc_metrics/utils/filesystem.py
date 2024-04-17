@@ -73,7 +73,8 @@ def read_tracking_file(
         return None
     with open(path, "r", encoding="utf-8") as f:
         lines = f.readlines()
-    lines = [x.strip().split(" ") for x in lines]
+    seperator = " " if " " in lines[0] else "\t"
+    lines = [x.strip().split(seperator) for x in lines]
     lines = [[int(y) for y in x if y != ""] for x in lines]
     return np.array(lines)
 

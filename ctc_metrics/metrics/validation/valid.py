@@ -73,6 +73,30 @@ def valid_parent_links(
     return int(is_valid)
 
 
+def valid_ends(
+        tracks: np.ndarray,
+):
+    """
+    Checks if the end is not before the birth.
+
+    Args:
+        tracks: The result tracks.
+
+    Returns:
+        1 if all parent links are valid, 0 otherwise.
+
+    """
+    is_valid = 1
+    for track in tracks:
+        i, birth, end, parent = track
+        if end < birth:
+            warnings.warn(
+                f"Track ends before birth: {i} {birth} {end} {parent}",
+                UserWarning)
+            is_valid = 0
+    return int(is_valid)
+
+
 def inspect_masks(
         frames: list,
         masks: list,
@@ -156,7 +180,8 @@ def valid(
     """
     is_valid = 1
     # Get the labels in each frame
-    frames = [[] for _ in range(len(masks))]
+    num_frames = max(tracks[:, 2].max() + 1, len(masks))
+    frames = [[] for _ in range(num_frames)]
     for track in tracks:
         label, birth, end, _ = track
         for frame in range(birth, end + 1):
@@ -167,8 +192,10 @@ def valid(
     is_valid *= unique_labels(tracks)
     # Check if parents ends before children are born
     is_valid *= valid_parent_links(tracks)
+    # Check if end is not before birth
+    is_valid *= valid_ends(tracks)
     # Check if all labels are in the frames they are used to be
     is_valid *= inspect_masks(frames, masks, labels_in_frames)
     # Check if frames are empty
-    is_valid *= no_empty_frames(frames)
+    no_empty_frames(frames)  # Should this make the validation irregular?
     return int(is_valid)

@@ -1,6 +1,6 @@
 import argparse
 import numpy as np
-from os.path import join, basename
+from os.path import join, basename, exists
 from multiprocessing import Pool, cpu_count
 
 from ctc_metrics.metrics import (
@@ -18,7 +18,7 @@ from ctc_metrics.utils.representations import match as match_tracks, \
 def match_computed_to_reference_masks(
         ref_masks: list,
         comp_masks: list,
-        multiprocessing: bool = True,
+        threads: int = 0,
 ):
     """
     Matches computed masks to reference masks.
@@ -26,14 +26,17 @@ def match_computed_to_reference_masks(
     Args:
         ref_masks: The reference masks.
         comp_masks: The computed masks.
-        multiprocessing: Whether to use multiprocessing (recommended!).
+        threads: The number of threads to use. If 0, the number of threads
+            is set to the number of available CPUs.
 
     Returns:
         The results stored in a dictionary.
     """
     labels_ref, labels_comp, mapped_ref, mapped_comp, ious = [], [], [], [], []
-    if multiprocessing:
-        with Pool(cpu_count()) as p:
+    if threads != 1:
+        if threads == 0:
+            threads = cpu_count()
+        with Pool(threads) as p:
             matches = p.starmap(match_tracks, zip(ref_masks, comp_masks))
     else:
         matches = [match_tracks(*x) for x in zip(ref_masks, comp_masks)]
@@ -57,7 +60,7 @@ def load_data(
         gt: str,
         trajectory_data: True,
         segmentation_data: True,
-        multiprocessing: bool = True,
+        threads: int = 0,
 ):
     # Read tracking files and parse mask files
     comp_tracks = read_tracking_file(join(res, "res_track.txt"))
@@ -71,9 +74,11 @@ def load_data(
 
     # Match golden truth tracking masks to result masks
     traj = {}
+    is_valid = None
     if trajectory_data:
         traj = match_computed_to_reference_masks(
-            ref_tra_masks, comp_masks, multiprocessing=multiprocessing)
+            ref_tra_masks, comp_masks, threads=threads)
+        is_valid = valid(comp_masks, comp_tracks, traj["labels_comp"])
 
     # Match golden truth segmentation masks to result masks
     segm = {}
@@ -85,9 +90,9 @@ def load_data(
             for x in ref_seg_masks
         ]
         segm = match_computed_to_reference_masks(
-            ref_seg_masks, _res_masks, multiprocessing=multiprocessing)
+            ref_seg_masks, _res_masks, threads=threads)
 
-    return comp_tracks, ref_tracks, traj, segm, comp_masks
+    return comp_tracks, ref_tracks, traj, segm, comp_masks, is_valid
 
 
 def calculate_metrics(
@@ -97,7 +102,8 @@ def calculate_metrics(
         segm: dict,
         comp_masks: list,
         metrics: list = None,
-    ):  # pylint: disable=too-complex
+        is_valid: bool = None,
+):  # pylint: disable=too-complex
     """
     Calculate metrics for given data.
 
@@ -108,6 +114,7 @@ def calculate_metrics(
         segm: The frame-wise segmentation match data.
         comp_masks: The computed masks.
         metrics: The metrics to evaluate.
+        is_valid: A Flag if the results are valid
 
     Returns:
         The results stored in a dictionary.
@@ -127,7 +134,7 @@ def calculate_metrics(
 
     # Prepare intermediate results
     graph_operations = {}
-    if "DET" in metrics or "TRA" in metrics or "LNK" in metrics:
+    if "DET" in metrics or "TRA" in metrics:
         graph_operations = \
             count_acyclic_graph_correction_operations(
                 ref_tracks, comp_tracks,
@@ -136,9 +143,14 @@ def calculate_metrics(
             )
 
     # Calculate metrics
-    results = {}
+    results = {x: None for x in metrics}
+    if not is_valid:
+        print("Invalid results!")
+        results["Valid"] = 0
+        return results
+
     if "Valid" in metrics:
-        results["Valid"] = valid(comp_masks, comp_tracks, traj["labels_comp"])
+        results["Valid"] = is_valid
 
     if "CHOTA" in metrics:
         results.update(chota(
@@ -150,7 +162,7 @@ def calculate_metrics(
         results["DET"] = det(**graph_operations)
 
     if "SEG" in metrics:
-        results["SEG"], _, _ = seg(segm["labels_ref"], segm["ious"])
+        results["SEG"] = seg(segm["labels_ref"], segm["ious"])
 
     if "TRA" in metrics:
         results["TRA"] = tra(**graph_operations)
@@ -175,9 +187,10 @@ def calculate_metrics(
             traj["labels_ref"], traj["mapped_ref"], traj["mapped_comp"])
 
     if "BC" in metrics:
-        for i in range(4):
+        for i in range(6):
             results[f"BC({i})"] = bc(
-                comp_tracks, ref_tracks,traj["mapped_ref"], traj["mapped_comp"],
+                comp_tracks, ref_tracks,
+                traj["mapped_ref"], traj["mapped_comp"],
                 i=i)
 
     if "CCA" in metrics:
@@ -258,11 +271,11 @@ def evaluate_sequence(
     if "SEG" not in metrics:
         segmentation_data = False
 
-    comp_tracks, ref_tracks, traj, segm, comp_masks = load_data(
+    comp_tracks, ref_tracks, traj, segm, comp_masks, is_valid = load_data(
         res, gt, trajectory_data, segmentation_data, multiprocessing)
 
     results = calculate_metrics(
-        comp_tracks, ref_tracks, traj, segm, comp_masks, metrics)
+        comp_tracks, ref_tracks, traj, segm, comp_masks, metrics, is_valid)
 
     print("with results: ", results, " done!")
 
@@ -273,6 +286,7 @@ def evaluate_all(
         res_root: str,
         gt_root: str,
         metrics: list = None,
+        threads: int = 0
     ):
     """
     Evaluate all sequences in a directory
@@ -281,6 +295,8 @@ def evaluate_all(
         res_root: The root directory of the results.
         gt_root: The root directory of the ground truth.
         metrics: The metrics to evaluate.
+        threads: The number of threads to use. If 0, the number of threads
+            is set to the number of available CPUs.
 
     Returns:
         The results stored in a dictionary.
@@ -288,7 +304,7 @@ def evaluate_all(
     results = []
     ret = parse_directories(res_root, gt_root)
     for res, gt, name in zip(*ret):
-        results.append([name, evaluate_sequence(res, gt, metrics)])
+        results.append([name, evaluate_sequence(res, gt, metrics, threads)])
     return results
 
 
@@ -299,6 +315,7 @@ def parse_args():
     parser.add_argument('--gt', type=str, required=True)
     parser.add_argument('-r', '--recursive', action="store_true")
     parser.add_argument('--csv-file', type=str, default=None)
+    parser.add_argument('-n', '--num-threads', type=int, default=0)
     parser.add_argument('--valid', action="store_true")
     parser.add_argument('--det', action="store_true")
     parser.add_argument('--seg', action="store_true")
@@ -344,11 +361,14 @@ def main():
     metrics = metrics if metrics else None
     # Evaluate sequence or whole directory
     if args.recursive:
-        res = evaluate_all(res_root=args.res, gt_root=args.gt, metrics=metrics)
+        res = evaluate_all(
+            res_root=args.res, gt_root=args.gt, metrics=metrics,
+            threads=args.num_threads
+        )
     else:
-        res = evaluate_sequence(res=args.res, gt=args.gt, metrics=metrics)
+        res = evaluate_sequence(
+            res=args.res, gt=args.gt, metrics=metrics, threads=args.num_threads)
     # Visualize and store results
-    print("=== Results ===")
     print_results(res)
     if args.csv_file is not None:
         store_results(args.csv_file, res)

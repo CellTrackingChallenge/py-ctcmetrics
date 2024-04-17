@@ -22,8 +22,6 @@ def seg(
     """
     number_of_reference_labels = np.sum([len(x) for x in labels_ref])
     intersection_over_unions = np.concatenate(intersection_over_unions)
-    true_positives = int(intersection_over_unions.size)
-    false_negatives = int(number_of_reference_labels - true_positives)
     total_intersection = np.sum(intersection_over_unions)
     seg_measure = total_intersection / np.maximum(number_of_reference_labels, 1)
-    return float(seg_measure), int(true_positives), int(false_negatives)
+    return float(seg_measure)
