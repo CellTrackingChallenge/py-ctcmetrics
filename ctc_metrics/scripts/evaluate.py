@@ -1,9 +1,12 @@
 import argparse
-
+import numpy as np
 from os.path import join, basename, exists
 from multiprocessing import Pool, cpu_count
 
-from ctc_metrics.metrics import valid, det, seg, tra, ct, tf, bc, cca
+from ctc_metrics.metrics import (
+    valid, det, seg, tra, ct, tf, bc, cca, op_ctb, op_csb, bio, op_clb, lnk
+)
+from ctc_metrics.metrics import ALL_METRICS
 from ctc_metrics.utils.handle_results import print_results, store_results
 from ctc_metrics.utils.filesystem import parse_directories, read_tracking_file,\
     parse_masks
@@ -51,60 +54,70 @@ def match_computed_to_reference_masks(
     }
 
 
-def evaluate_sequence(
+def load_data(
         res: str,
         gt: str,
-        metrics: list = None,
+        trajectory_data: True,
+        segmentation_data: True,
         threads: int = 0,
-    ):  # pylint: disable=too-complex
+):
+    # Read tracking files and parse mask files
+    comp_tracks = read_tracking_file(join(res, "res_track.txt"))
+    ref_tracks = read_tracking_file(join(gt, "TRA", "man_track.txt"))
+    comp_masks = parse_masks(res)
+    ref_tra_masks = parse_masks(join(gt, "TRA"))
+    assert len(ref_tra_masks) > 0, f"{gt}: Ground truth masks is 0!)"
+    assert len(ref_tra_masks) == len(comp_masks), (
+        f"{res}: Number of result masks ({len(comp_masks)}) unequal to "
+        f"the number of ground truth masks ({len(ref_tra_masks)})!)")
+
+    # Match golden truth tracking masks to result masks
+    traj = {}
+    is_valid = True
+    if trajectory_data:
+        traj = match_computed_to_reference_masks(
+            ref_tra_masks, comp_masks, threads=threads)
+        is_valid = valid(comp_masks, comp_tracks, traj["labels_comp"])
+
+    # Match golden truth segmentation masks to result masks
+    segm = {}
+    if segmentation_data:
+        ref_seg_masks = parse_masks(join(gt, "SEG"))
+        _res_masks = [
+            comp_masks[int(basename(x).replace(
+                "man_seg", "").replace(".tif", "").replace("_", ""))]
+            for x in ref_seg_masks
+        ]
+        segm = match_computed_to_reference_masks(
+            ref_seg_masks, _res_masks, threads=threads)
+
+    return comp_tracks, ref_tracks, traj, segm, comp_masks, is_valid
+
+
+def calculate_metrics(
+        comp_tracks: np.ndarray,
+        ref_tracks: np.ndarray,
+        traj: dict,
+        segm: dict,
+        comp_masks: list,
+        metrics: list = None,
+        is_valid: bool = None,
+):  # pylint: disable=too-complex
     """
-    Evaluate a single sequence
+    Calculate metrics for given data.
 
     Args:
-        res: The path to the results.
-        gt: The path to the ground truth.
+        comp_tracks: The computed tracks result file.
+        ref_tracks: The reference tracks result file.
+        traj: The frame-wise trajectory match data.
+        segm: The frame-wise segmentation match data.
+        comp_masks: The computed masks.
         metrics: The metrics to evaluate.
-        multiprocessing: Whether to use multiprocessing (recommended!).
-        threads: The number of threads to use. If 0, the number of threads
-            is set to the number of available CPUs.
+        is_valid: A Flag if the results are valid
 
     Returns:
         The results stored in a dictionary.
     """
-    print("\r", res, end=": ")
-    # Verify all metrics
-    if metrics is None:
-        metrics = ["Valid", "DET", "SEG", "TRA", "CT", "TF", "BC", "CCA"]
-    # Read tracking files and parse mask files
-    comp_tracks = read_tracking_file(join(res, "res_track.txt"))
-    ref_tracks = read_tracking_file(join(gt, "TRA", "man_track.txt"))
-    ref_tra_masks = parse_masks(join(gt, "TRA"))
-    assert len(ref_tra_masks) > 0, f"{res}: Ground truth masks is 0!)"
-    # Match golden truth tracking masks to result masks
-    traj = {}
-    is_valid = None
-    if sorted(metrics) != ["SEG"]:
-        comp_masks = [
-            join(res, "mask" + basename(x).replace(
-                "man_track", "").replace(".tif", "").replace("_", "") + ".tif")
-            for x in ref_tra_masks
-        ]
-        comp_masks = [x if exists(x) else None for x in comp_masks]
-        traj = match_computed_to_reference_masks(
-            ref_tra_masks, comp_masks, threads=threads)
-        is_valid = valid(comp_masks, comp_tracks, traj["labels_comp"])
-    # Match golden truth segmentation masks to result masks
-    segm = {}
-    if "SEG" in metrics:
-        ref_seg_masks = parse_masks(join(gt, "SEG"))
-        comp_masks = [
-            join(res, "mask" + basename(x).replace(
-                "man_seg", "").replace(".tif", "").replace("_", "") + ".tif")
-            for x in ref_seg_masks
-        ]
-        comp_masks = [x if exists(x) else None for x in comp_masks]
-        segm = match_computed_to_reference_masks(
-            ref_seg_masks, comp_masks, threads=threads)
     # Prepare intermediate results
     graph_operations = {}
     if "DET" in metrics or "TRA" in metrics:
@@ -114,6 +127,7 @@ def evaluate_sequence(
                 traj["labels_ref"], traj["labels_comp"],
                 traj["mapped_ref"], traj["mapped_comp"]
             )
+
     # Calculate metrics
     results = {x: None for x in metrics}
     if not is_valid:
@@ -123,29 +137,102 @@ def evaluate_sequence(
 
     if "Valid" in metrics:
         results["Valid"] = is_valid
+
     if "DET" in metrics:
         results["DET"] = det(**graph_operations)
+
     if "SEG" in metrics:
         results["SEG"] = seg(segm["labels_ref"], segm["ious"])
+
     if "TRA" in metrics:
         results["TRA"] = tra(**graph_operations)
+
+    if "LNK" in metrics:
+        results["LNK"] = lnk(**graph_operations)
+
+    if "DET" in metrics and "SEG" in metrics:
+        results["OP_CSB"] = op_csb(results["SEG"], results["DET"])
+
+    if "SEG" in metrics and "TRA" in metrics:
+        results["OP_CTB"] = op_ctb(results["SEG"], results["TRA"])
+
     if "CT" in metrics:
         results["CT"] = ct(
             comp_tracks, ref_tracks,
             traj["labels_ref"], traj["mapped_ref"], traj["mapped_comp"])
+
     if "TF" in metrics:
         results["TF"] = tf(
             ref_tracks,
             traj["labels_ref"], traj["mapped_ref"], traj["mapped_comp"])
+
     if "BC" in metrics:
-        for i in range(6):
+        for i in range(4):
             results[f"BC({i})"] = bc(
                 comp_tracks, ref_tracks,
                 traj["mapped_ref"], traj["mapped_comp"],
                 i=i)
+
     if "CCA" in metrics:
         results["CCA"] = cca(comp_tracks, ref_tracks)
-    print(results)
+
+    if "CT" in metrics and "BC" in metrics and \
+            "CCA" in metrics and "TF" in metrics:
+        for i in range(4):
+            results[f"BIO({i})"] = bio(
+                results["CT"], results["TF"],
+                results[f"BC({i})"], results["CCA"])
+
+    if "BIO(0)" in results and "LNK" in results:
+        for i in range(4):
+            results[f"OP_CLB({i})"] = op_clb(
+                results[f"LNK"], results[f"BIO({i})"])
+
+    return results
+
+
+def evaluate_sequence(
+        res: str,
+        gt: str,
+        metrics: list = None,
+        threads: int = 0,
+    ):
+    """
+    Evaluates a single sequence
+
+    Args:
+        res: The path to the results.
+        gt: The path to the ground truth.
+        metrics: The metrics to evaluate.
+        threads: The number of threads to use. If 0, the number of threads
+            is set to the number of available CPUs.
+
+    Returns:
+        The results stored in a dictionary.
+    """
+
+    print("Evaluate sequence: ", res, " with ground truth: ", gt, end="")
+    # Verify all metrics
+    if metrics is None:
+        metrics = ALL_METRICS
+
+    trajectory_data = True
+    segmentation_data = True
+
+    if metrics == ["SEG"] or metrics == ["CCA"]:
+        trajectory_data = False
+
+    if "SEG" not in metrics:
+        segmentation_data = False
+
+    comp_tracks, ref_tracks, traj, segm, comp_masks, is_valid = load_data(
+        res, gt, trajectory_data, segmentation_data, threads)
+
+    results = calculate_metrics(
+        comp_tracks, ref_tracks, traj, segm, comp_masks, metrics, is_valid)
+
+    print("with results: ", results, " done!")
+
     return results
 
 
@@ -191,6 +278,7 @@ def parse_args():
     parser.add_argument('--tf', action="store_true")
     parser.add_argument('--bc', action="store_true")
     parser.add_argument('--cca', action="store_true")
+    parser.add_argument('--lnk', action="store_true")
     args = parser.parse_args()
     return args
 
@@ -209,7 +297,8 @@ def main():
         ("CT", args.ct),
         ("TF", args.tf),
         ("BC", args.bc),
-        ("CCA", args.cca)
+        ("CCA", args.cca),
+        ("LNK", args.lnk),
     ) if flag]
     metrics = metrics if metrics else None
     # Evaluate sequence or whole directory
