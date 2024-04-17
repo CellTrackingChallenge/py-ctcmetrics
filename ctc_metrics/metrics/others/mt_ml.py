@@ -29,7 +29,7 @@ def mtml(
 
     # Calculate the metrics
     total_ref = np.sum(track_intersection[1:, :], axis=1)
-    ratio = (total_ref - track_intersection[1:, 0]) / np.maximum(total_ref, 1)
+    ratio = np.max(track_intersection[1:, :], axis=1) / np.maximum(total_ref, 1)
     valid_ref = total_ref > 0
     mt = np.sum(ratio[valid_ref] >= 0.8) / np.sum(valid_ref)
     ml = np.sum(ratio[valid_ref] < 0.2) / np.sum(valid_ref)

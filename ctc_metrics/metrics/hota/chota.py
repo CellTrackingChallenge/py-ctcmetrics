@@ -91,7 +91,6 @@ def chota(
                 a_corr = tpa / (tpa + fna + fpa)
                 hota += num_pixels * a_corr
 
-
     tp = track_intersection[1:, 1:].sum()
     fp = track_intersection[0, 1:].sum()
     fn = track_intersection[1:, 0].sum()

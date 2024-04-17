@@ -26,7 +26,6 @@ def mota(
 
     max_label_gt = int(np.max(np.concatenate(labels_ref)))
     matches = np.zeros(max_label_gt + 1)
-
     for ref, comp, m_ref, m_comp in zip(
             labels_ref, labels_comp, mapped_ref, mapped_comp):
         # Calculate metrics
@@ -35,7 +34,7 @@ def mota(
         fn += len(ref) - len(m_ref)
         fp += len(comp) - len(m_comp) + np.sum(counts[counts > 1] - 1)
         multi_assignments += np.sum(counts[counts > 1] - 1)
-        idsw += np.sum(matches[m_ref] != m_comp)
+        idsw += np.sum((matches[m_ref] != m_comp) & (matches[m_ref] != 0))
         # Update the match cache
         matches[m_ref] = m_comp
 
