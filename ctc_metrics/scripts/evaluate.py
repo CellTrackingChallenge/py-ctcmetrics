@@ -74,7 +74,7 @@ def load_data(
 
     # Match golden truth tracking masks to result masks
     traj = {}
-    is_valid = None
+    is_valid = True
     if trajectory_data:
         traj = match_computed_to_reference_masks(
             ref_tra_masks, comp_masks, threads=threads)
@@ -187,7 +187,7 @@ def calculate_metrics(
             traj["labels_ref"], traj["mapped_ref"], traj["mapped_comp"])
 
     if "BC" in metrics:
-        for i in range(6):
+        for i in range(4):
             results[f"BC({i})"] = bc(
                 comp_tracks, ref_tracks,
                 traj["mapped_ref"], traj["mapped_comp"],
@@ -241,8 +241,8 @@ def evaluate_sequence(
         res: str,
         gt: str,
         metrics: list = None,
-        multiprocessing: bool = True,
-):
+        threads: int = 0,
+    ):
     """
     Evaluates a single sequence
 
@@ -250,11 +250,11 @@ def evaluate_sequence(
         res: The path to the results.
         gt: The path to the ground truth.
         metrics: The metrics to evaluate.
-        multiprocessing: Whether to use multiprocessing (recommended!).
+        threads: The number of threads to use. If 0, the number of threads
+            is set to the number of available CPUs.
 
     Returns:
         The results stored in a dictionary.
-
     """
 
     print("Evaluate sequence: ", res, " with ground truth: ", gt, end="")
@@ -272,7 +272,7 @@ def evaluate_sequence(
         segmentation_data = False
 
     comp_tracks, ref_tracks, traj, segm, comp_masks, is_valid = load_data(
-        res, gt, trajectory_data, segmentation_data, multiprocessing)
+        res, gt, trajectory_data, segmentation_data, threads)
 
     results = calculate_metrics(
         comp_tracks, ref_tracks, traj, segm, comp_masks, metrics, is_valid)
