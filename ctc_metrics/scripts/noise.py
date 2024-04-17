@@ -40,15 +40,11 @@ def add_noise(
         ref_tracks: np.ndarray,
         traj: dict,
         seed: int = 0,
-        noise_mitosis_remove_one_child: float = 0.0,
-        noise_mitosis_remove_all_children: float = 0.0,
-        noise_mitosis_shift: float = 0.0,
-        noise_add_false_positive: float = 0.0,
-        noise_unassociate_true_positive: float = 0.0,
-        noise_add_false_negative: float = 0.0,
-        noise_extend_tracks: float = 0.0,
-        noise_add_false_association: float = 0.0,
-        noise_remove_association: float = 0.0,
+        noise_add_false_negative: int = 0,
+        noise_add_false_positive: int = 0,
+        noise_add_idsw: int = 0,
+        noise_remove_matches: int = 0,
+        noise_remove_mitosis: int = 0,
 ):
     """
     Add noise to the data.
@@ -58,23 +54,18 @@ def add_noise(
         ref_tracks:
         traj:
         seed:
-        noise_mitosis_remove_one_child:
-            Removes randomly one child of n/N mitosis events, where the
-            parameter describes the ratio n/N.
-        noise_mitosis_remove_all_children:
-            Removes all children of n/N mitosis events, where the parameter
-            describes the ratio n/N.
-        noise_mitosis_shift:
-        noise_add_false_positive:
-            Adds false positives to the data, where the parameter describes
-            the ratio of new false positives compared to true positives.
         noise_add_false_negative:
-        noise_extend_tracks:
-        noise_add_false_association:
-        noise_remove_association:
-        noise_unassociate_true_positive:
-            Removes the association of n/N true positives, where the parameter
-            describes the ratio n/N where N is the number of all true positives.
+            Adds n false negatives to the data, where the parameter is n.
+        noise_remove_mitosis:
+            Removes parend daughter relations of n mitosis events, where the
+            parameter describes n.
+        noise_add_false_positive:
+            Adds n false positives to the data, where the parameter is n.
+        noise_add_idsw:
+            Adds n ID switches to the data, where the parameter is n.
+        noise_remove_matches:
+            Removes n matches from the data, where the parameter is n.
+            This produces n false negatives and n false positives.
 
     Returns:
         comp_tracks: Updated with noise applied.
@@ -83,66 +74,134 @@ def add_noise(
     comp_tracks = np.copy(comp_tracks)
     traj = copy.deepcopy(traj)
 
-    np.random.seed(seed)
-
-    # Remove randomly one child of mitosis events
-    if noise_mitosis_remove_one_child > 0:
-        assert noise_mitosis_remove_one_child <= 1
-        parents, counts = np.unique(
-            comp_tracks[comp_tracks[:, 3] > 0, 3], return_counts=True)
-        parents = parents[counts > 1]
-        num_splits = int(
-            np.round(noise_mitosis_remove_one_child * len(parents)))
-        np.random.shuffle(parents)
-        for parent in parents[:num_splits]:
-            children = comp_tracks[comp_tracks[:, 3] == parent, 0]
-            child = children[np.random.randint(len(children))]
-            comp_tracks[comp_tracks[:, 0] == child, 3] = 0
-
     # Remove all children of mitosis events
-    if noise_mitosis_remove_all_children > 0:
-        assert noise_mitosis_remove_all_children <= 1
+    np.random.seed(seed)
+    if noise_remove_mitosis > 0:
+        assert noise_remove_mitosis <= 1
         parents, counts = np.unique(
             comp_tracks[comp_tracks[:, 3] > 0, 3], return_counts=True)
         parents = parents[counts > 1]
-        num_splits = int(
-            np.round(noise_mitosis_remove_all_children * len(parents)))
+        num_splits = min(noise_remove_mitosis, len(parents))
         np.random.shuffle(parents)
         for parent in parents[:num_splits]:
             comp_tracks[np.isin(comp_tracks[:, 3], parent), 3] = 0
 
+    # Add false negatives
+    np.random.seed(seed)
+    if noise_add_false_negative > 0:
+        next_id = np.max(comp_tracks[:, 0]) + 1
+        l_comp = traj["labels_comp"]
+        m_comp = traj["mapped_comp"]
+        m_ref = traj["mapped_ref"]
+        candidates = []
+        for frame in range(0, len(l_comp)):
+            for i in range(len(l_comp[frame])):
+                candidates.append((frame, i))
+        random.shuffle(candidates)
+        num_fn = min(noise_add_false_negative, len(candidates))
+        for frame, i in candidates[:num_fn]:
+            v = l_comp[frame][i]
+            # Remove from current frame
+            print(m_comp[frame], m_ref[frame], v)
+            while v in m_comp[frame]:
+                i = m_comp[frame].index(v)
+                m_comp[frame].pop(i)
+                m_ref[frame].pop(i)
+            print("             ", m_comp[frame], m_ref[frame])
+            l_comp[frame].pop(i)
+            # Create new trajectory
+            start, end = comp_tracks[comp_tracks[:, 0] == v, 1:3][0]
+            if start == end:
+                comp_tracks = comp_tracks[comp_tracks[:, 0] != v]
+                comp_tracks[comp_tracks[:, 3] == v, 3] = 0
+            elif frame == start:
+                comp_tracks[comp_tracks[:, 0] == v, 1] += 1
+            elif frame == end:
+                comp_tracks[comp_tracks[:, 0] == v, 2] -= 1
+            else:
+                comp_tracks[comp_tracks[:, 0] == v, 2] = frame - 1
+                comp_tracks = np.concatenate(
+                    [comp_tracks, [[next_id, frame + 1, end, v]]], axis=0)
+                comp_tracks[comp_tracks[:, 0] == v, 3] = next_id
+                for f in range(frame + 1, end + 1):
+                    #print(l_comp[f])
+                    l_comp[f][l_comp[f] == v] = next_id
+                    m_comp[f][m_comp[f] == v] = next_id
+                    #print("    ", l_comp[f])
+
+            next_id += 1
+
     # Add false positives
+    np.random.seed(seed)
     if noise_add_false_positive > 0:
-        assert noise_add_false_positive <= 1
         label = traj["labels_comp"]
-        total_nodes = np.sum([len(x) for x in label])
         next_id = np.max(comp_tracks[:, 0]) + 1
         max_frame = np.max(comp_tracks[:, 2])
-        fp_to_add = int(np.round(noise_add_false_positive * total_nodes))
+        fp_to_add = int(noise_add_false_positive)
         for _ in range(fp_to_add):
             frame = np.random.randint(max_frame + 1)
             comp_tracks = np.concatenate(
                 [comp_tracks, [[next_id, frame, frame, 0]]], axis=0)
             label[frame].append(next_id)
-            next_id += 1
 
-    # Unassociate true positives
-    if noise_unassociate_true_positive > 0:
-        assert noise_unassociate_true_positive <= 1
+    # Unmatch true positives
+    np.random.seed(seed)
+    if noise_remove_matches > 0:
         m_comp = traj["mapped_comp"]
         m_ref = traj["mapped_ref"]
-        total_edges = np.sum([len(x) for x in m_comp])
         candidates = []
-        for frame in range(len(m_comp)):
+        for frame in range(1, len(m_comp)):
             for i in range(len(m_comp[frame])):
                 candidates.append(frame)
         random.shuffle(candidates)
-        num_unassoc = int(np.round(noise_unassociate_true_positive * total_edges))
+        num_unassoc = min(noise_remove_matches, len(candidates))
         for frame in candidates[:num_unassoc]:
             total_inds = len(m_comp[frame])
             i = np.random.randint(total_inds)
             m_comp[frame].pop(i)
             m_ref[frame].pop(i)
+
+    # Add IDSw
+    np.random.seed(seed)
+    if noise_add_idsw > 0:
+        labels_comp = traj["labels_comp"]
+        m_comp = traj["mapped_comp"]
+        candidates = []
+        for frame in range(len(m_comp)):
+            if np.unique(m_comp[frame]).shape[0] <= 1:
+                continue
+            for i in range(len(np.unique(m_comp[frame])) - 1):
+                candidates.append(frame)
+        random.shuffle(candidates)
+        num_unassoc = min(noise_add_idsw, len(candidates))
+        for frame in candidates[:num_unassoc]:
+            # Select two random indices
+            comp = m_comp[frame]
+            c1, c2 = np.random.choice(comp, 2, replace=False)
+            end1 = comp_tracks[comp_tracks[:, 0] == c1, 2]
+            end2 = comp_tracks[comp_tracks[:, 0] == c2, 2]
+            children1 = comp_tracks[:, 3] == c1
+            children2 = comp_tracks[:, 3] == c2
+            # Swap the two indices
+            for f in range(frame, max(end1, end2) + 1):
+                _l_comp = labels_comp[f]
+                _comp = m_comp[f]
+                i1 = _comp == c1
+                i2 = _comp == c2
+                _comp[i1] = c2
+                _comp[i2] = c1
+                i1 = _l_comp == c1
+                i2 = _l_comp == c2
+                _l_comp[i1] = c2
+                _l_comp[i2] = c1
+            i1 = comp_tracks[:, 0] == c1
+            i2 = comp_tracks[:, 0] == c2
+            comp_tracks[i1, 2] = end2
+            comp_tracks[i2, 2] = end1
+            comp_tracks[children1, 3] = c2
+            comp_tracks[children2, 3] = c1
+
+
 
     return comp_tracks, traj
 
@@ -219,10 +278,33 @@ def evaluate_sequence(
             #     "seed": i,
             #     "noise_add_false_positive": p / 100,
             # })
-            noise_settings.append({
-                "seed": i,
-                "noise_unassociate_true_positive": p / 100,
-            })
+            # noise_settings.append({
+            #     "seed": i,
+            #     "noise_unassociate_true_positive": p / 100,
+            # })
+            pass
+
+
+    noise_settings.append({
+        "seed": 0,
+        "noise_remove_mitosis": 1,
+    })
+    noise_settings.append({
+        "seed": 0,
+        "noise_add_false_positive": 1,
+    })
+    noise_settings.append({
+        "seed": 0,
+        "noise_add_false_negative": 1,
+    })
+    noise_settings.append({
+        "seed": 0,
+        "noise_remove_matches": 1,
+    })
+    noise_settings.append({
+        "seed": 0,
+        "noise_add_idsw": 1,
+    })
 
 
     if shuffle:
@@ -241,15 +323,11 @@ def evaluate_sequence(
         # Check if noise setting is new
         default_setting = {
             "seed": 0,
-            "noise_mitosis_remove_one_child": 0.0,
-            "noise_mitosis_remove_all_children": 0.0,
-            "noise_mitosis_shift": 0.0,
-            "noise_add_false_positive": 0.0,
-            "noise_add_false_negative": 0.0,
-            "noise_extend_tracks": 0.0,
-            "noise_add_false_association": 0.0,
-            "noise_remove_association": 0.0,
-            "noise_unassociate_true_positive": 0.0,
+            "noise_add_false_positive": 0,
+            "noise_add_false_negative": 0,
+            "noise_add_idsw": 0,
+            "noise_remove_matches": 0,
+            "noise_remove_mitosis": 0,
         }
 
         default_setting.update(setting)
