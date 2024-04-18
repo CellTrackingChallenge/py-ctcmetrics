@@ -38,12 +38,14 @@ def track_confusion_matrix(
             labels_ref, labels_comp, mapped_ref, mapped_comp):
         # Fill track intersection matrix
         ref = np.asarray(ref)
-        comp = np.asarray(comp)
+        comp = np.asarray(comp).astype(int)
+        m_ref = np.asarray(m_ref).astype(int)
+        m_comp = np.asarray(m_comp).astype(int)
         if len(m_ref) > 0:
             track_intersection[m_ref, m_comp] += 1
         fna = ref[np.isin(ref, m_ref, invert=True)]
         track_intersection[fna, 0] += 1
-        fpa = comp[np.isin(comp, m_comp, invert=True)]
+        fpa = comp[np.isin(comp, m_comp, invert=True)].astype(int)
         track_intersection[0, fpa] += 1
 
     return track_intersection
