@@ -1,7 +1,7 @@
 import argparse
-import numpy as np
-from os.path import join, basename, exists
+from os.path import join, basename
 from multiprocessing import Pool, cpu_count
+import numpy as np
 
 from ctc_metrics.metrics import (
     valid, det, seg, tra, ct, tf, bc, cca, op_ctb, op_csb, bio, op_clb, lnk
@@ -73,7 +73,7 @@ def load_data(
 
     # Match golden truth tracking masks to result masks
     traj = {}
-    is_valid = True
+    is_valid = 0
     if trajectory_data:
         traj = match_computed_to_reference_masks(
             ref_tra_masks, comp_masks, threads=threads)
@@ -99,7 +99,6 @@ def calculate_metrics(
         ref_tracks: np.ndarray,
         traj: dict,
         segm: dict,
-        comp_masks: list,
         metrics: list = None,
         is_valid: bool = None,
 ):  # pylint: disable=too-complex
@@ -111,7 +110,6 @@ def calculate_metrics(
         ref_tracks: The reference tracks result file.
         traj: The frame-wise trajectory match data.
         segm: The frame-wise segmentation match data.
-        comp_masks: The computed masks.
         metrics: The metrics to evaluate.
         is_valid: A Flag if the results are valid
 
@@ -186,7 +184,7 @@ def calculate_metrics(
     if "BIO(0)" in results and "LNK" in results:
         for i in range(4):
             results[f"OP_CLB({i})"] = op_clb(
-                results[f"LNK"], results[f"BIO({i})"])
+                results[f"LNK({i})"], results[f"BIO({i})"])
 
     return results
 
@@ -219,17 +217,17 @@ def evaluate_sequence(
     trajectory_data = True
     segmentation_data = True
 
-    if metrics == ["SEG"] or metrics == ["CCA"]:
+    if metrics in (["SEG"], ["CCA"]):
         trajectory_data = False
 
     if "SEG" not in metrics:
         segmentation_data = False
 
-    comp_tracks, ref_tracks, traj, segm, comp_masks, is_valid = load_data(
+    comp_tracks, ref_tracks, traj, segm, _, is_valid = load_data(
         res, gt, trajectory_data, segmentation_data, threads)
 
     results = calculate_metrics(
-        comp_tracks, ref_tracks, traj, segm, comp_masks, metrics, is_valid)
+        comp_tracks, ref_tracks, traj, segm, metrics, is_valid)
 
     print("with results: ", results, " done!")
 

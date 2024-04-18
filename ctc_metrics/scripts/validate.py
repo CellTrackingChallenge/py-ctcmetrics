@@ -64,8 +64,8 @@ def validate_all(
     """
     results = []
     ret = parse_directories(res_root, None)
-    for res, gt, name in zip(*ret):
-        results.append([name, validate_sequence(res, gt)])
+    for res, _, name in zip(*ret):
+        results.append([name, validate_sequence(res, threads)])
     return results
 
 
