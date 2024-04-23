@@ -331,8 +331,10 @@ def count_acyclic_graph_correction_operations(
                          + E_R[:, 4])
     unique_edge_ids_C = (E_C[:, 9] * 10 ** len(str(stats["num_vertices_R"]))
                          + E_C[:, 10])
-    assert np.max(np.unique(unique_edge_ids_R, return_counts=True)[1]) == 1
-    assert np.max(np.unique(unique_edge_ids_C, return_counts=True)[1]) == 1
+    if unique_edge_ids_R.size > 0:
+        assert np.max(np.unique(unique_edge_ids_R, return_counts=True)[1]) == 1
+    if unique_edge_ids_C.size > 0:
+        assert np.max(np.unique(unique_edge_ids_C, return_counts=True)[1]) == 1
     isin_R = np.isin(unique_edge_ids_C, unique_edge_ids_R)
     isin_C = np.isin(unique_edge_ids_R, unique_edge_ids_C)
     E_R_mapped = E_R[isin_C]
