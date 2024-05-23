@@ -212,16 +212,19 @@ def is_new_setting(
         setting: dict,
         path: str,
         name: str,
+        df=None,
 ):
     if exists(path):
         setting["name"] = name
-        df = pd.read_csv(path, index_col="index", sep=";")
+        if df is None:
+            df = pd.read_csv(path, index_col="index", sep=";")
+        _df = df.copy()
         for k, v in setting.items():
-            df = df[df[k] == v]
-            if len(df) == 0:
-                return True
-        return False
-    return True
+            _df = _df[_df[k] == v]
+            if len(_df) == 0:
+                return True, df
+        return False, df
+    return True, df
 
 
 def append_results(
@@ -261,84 +264,6 @@ def evaluate_sequence(
     """
 
     print("Run noise test on ", gt, end="...")
-
-    # Selection of noise settings
-    repeats = 10
-    noise_settings = [{}]
-    # Add ... noise
-    for p in range(1, 101):
-        for i in range(repeats):
-            # noise_settings.append({
-            #     "seed": i,
-            #     "noise_mitosis_remove_one_child": p / 100,
-            # })
-            # noise_settings.append({
-            #     "seed": i,
-            #     "noise_mitosis_remove_all_children": p / 100,
-            # })
-            # noise_settings.append({
-            #     "seed": i,
-            #     "noise_add_false_positive": p / 100,
-            # })
-            # noise_settings.append({
-            # snoise_settings.append({
-            #     "seed": i,
-            #     "noise_unassociate_true_positive": p / 100,
-            # })
-            pass
-
-    for i in range(0, repeats):
-        noise_settings.append({
-            "seed": i,
-            "noise_remove_mitosis": 1 + repeats,
-        })
-    for i in range(0, repeats):
-        noise_settings.append({
-            "seed": i,
-            "noise_add_false_negative": 1 + repeats,
-        })
-    for i in range(0, repeats):
-        noise_settings.append({
-            "seed": i,
-            "noise_add_false_positive": 1 + repeats,
-        })
-    for i in range(0, repeats):
-        noise_settings.append({
-            "seed": i,
-            "noise_remove_matches": 1 + repeats,
-        })
-    for i in range(0, repeats):
-        noise_settings.append({
-            "seed": i,
-            "noise_add_idsw": 1 + repeats,
-        })
-
-
-    # noise_settings.append({
-    #     "seed": 0,
-    #     "noise_remove_mitosis": 1,
-    # })
-    # noise_settings.append({
-    #     "seed": 0,
-    #     "noise_add_false_positive": 1,
-    # })
-    # noise_settings.append({
-    #     "seed": 0,
-    #     "noise_add_false_negative": 1,
-    # })
-    # noise_settings.append({
-    #     "seed": 0,
-    #     "noise_remove_matches": 1,
-    # })
-    # noise_settings.append({
-    #     "seed": 0,
-    #     "noise_add_idsw": 1,
-    # })
-
-
-    # if shuffle:
-    #     np.random.shuffle(noise_settings)
-
     # Prepare all metrics
     metrics = copy.deepcopy(ALL_METRICS)
     metrics.remove("Valid")
@@ -346,6 +271,65 @@ def evaluate_sequence(
 
     comp_tracks, ref_tracks, traj, segm, comp_masks = load_data(gt, threads)
 
+    # Selection of noise settings
+    repeats = 10
+    noise_settings = [{}]
+
+    # # Add mitosis detection noise
+    # parents, counts = np.unique(
+    #     comp_tracks[comp_tracks[:, 3] > 0, 3], return_counts=True)
+    # num_parents = len(parents[counts > 1])
+    # for p in range(1, num_parents+1   ):
+    #     for i in range(0, repeats):
+    #         noise_settings.append({
+    #             "seed": i,
+    #             "noise_remove_mitosis": p,
+    #         })
+    #
+    # # Add false negative noise
+    num_false_negs_max = np.sum(ref_tracks[:, 2] - ref_tracks[:, 1] + 1)
+    # for fn in range(1, min(500, num_false_negs_max)):
+    #     for i in range(0, repeats):
+    #         noise_settings.append({
+    #             "seed": i,
+    #             "noise_add_false_negative": fn,
+    #         })
+    #
+    # # Add false positive noise
+    # for fp in range(1, 500):
+    #     for i in range(0, repeats):
+    #         noise_settings.append({
+    #             "seed": i,
+    #             "noise_add_false_positive": fp,
+    #         })
+
+
+    number = 9
+    csv_file = csv_file[:-4] + f"_{number}.csv"
+
+    # Add matching noise
+    for match in range(1, min(500, num_false_negs_max)):
+        for i in range(0, repeats):
+            if i != number:
+               continue
+            noise_settings.append({
+                "seed": i,
+                "noise_remove_matches": match,
+            })
+
+    # Add ID switch noise
+    for idsw in range(1, 500):
+        for i in range(0, repeats):
+            if i != number:
+               continue
+            noise_settings.append({
+                "seed": i,
+                "noise_add_idsw": idsw,
+            })
+
+    # if shuffle:
+    #     np.random.shuffle(noise_settings)
+    df = None
     for i, setting in enumerate(noise_settings):
         print(f"\rRun noise test on ", gt, f"\t{i + 1}\t/ {len(noise_settings)}", end="")
         # Check if noise setting is new
@@ -360,19 +344,21 @@ def evaluate_sequence(
 
         default_setting.update(setting)
 
-        if not is_new_setting(default_setting, csv_file, name):
+        is_new, df = is_new_setting(default_setting, csv_file, name, df)
+        if not is_new:
             continue
-
+        df = None
         # Add noise to the data and calculate the metrics
         n_comp_tracks, n_traj = add_noise(
             comp_tracks, ref_tracks, traj, **setting)
 
-        results = calculate_metrics(
-            n_comp_tracks, ref_tracks, n_traj, segm, comp_masks, metrics, is_valid=True)
+        results = dict(name=name)
 
-        results["name"] = name
-        # results.update(default_setting)
-        # append_results(csv_file, results)
+        metrics = calculate_metrics(
+            n_comp_tracks, ref_tracks, n_traj, segm, comp_masks, metrics, is_valid=True)
+        results.update(metrics)
+        results.update(default_setting)
+        append_results(csv_file, results)
 
     print("")
 
@@ -394,8 +380,11 @@ def evaluate_all(
         The results stored in a dictionary.
     """
     ret = parse_directories(gt_root, gt_root)
+    i = 0
     for res, gt, name in zip(*ret):
-        evaluate_sequence(gt, name, threads, csv_file)
+        if 12 > i >= 0:
+            evaluate_sequence(gt, name, threads, csv_file)
+        i += 1
 
 
 def parse_args():
@@ -405,6 +394,7 @@ def parse_args():
     parser.add_argument('-r', '--recursive', action="store_true")
     parser.add_argument('--csv-file', type=str, default=None)
     parser.add_argument('-n', '--num-threads', type=int, default=0)
+    #parser.add_argument('-s', type=int, default=-1)
     args = parser.parse_args()
     return args
 
@@ -422,7 +412,7 @@ def main():
         challenge = basename(dirname(args.gt))
         sequence = basename(args.gt).replace("_GT", "")
         name = challenge + "_" + sequence
-        evaluate_sequence(args.gt, name, args.csv_file, args.num_threads)
+        evaluate_sequence(args.gt, name, args.num_threads, args.csv_file)
 
 
 if __name__ == "__main__":

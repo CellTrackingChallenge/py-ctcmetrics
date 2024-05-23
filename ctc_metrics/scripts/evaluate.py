@@ -203,7 +203,7 @@ def calculate_metrics(
                 results["CT"], results["TF"],
                 results[f"BC({i})"], results["CCA"])
 
-    if "BIO(0)" in results and "LNK" in results:
+    if "BIO" in results and "LNK" in results:
         for i in range(4):
             results[f"OP_CLB({i})"] = op_clb(
                 results[f"LNK"], results[f"BIO({i})"])
