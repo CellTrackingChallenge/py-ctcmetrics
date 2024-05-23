@@ -19,6 +19,7 @@ setup(
         'console_scripts': [
             'ctc_evaluate = ctc_metrics.scripts.evaluate:main',
             'ctc_validate = ctc_metrics.scripts.validate:main',
+            'ctc_visualize = ctc_metrics.scripts.visualize:main',
             # Add more scripts here if needed
         ],
     },
