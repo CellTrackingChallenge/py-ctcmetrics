@@ -140,7 +140,10 @@ print(res["TRA"])
 
 ### Visualization
 
-<center><img src="assets/visualization.jpg"></center>
+<p align="center">
+  <img src="assets/visualization.jpg" />
+</p>
+
 
 You can visualize the tracking results with the following command:
 
