@@ -1,8 +1,5 @@
 import numpy as np
 
-from ctc_metrics.utils.representations import track_confusion_matrix
-
-
 def faf(
         labels_comp: list,
         mapped_comp: list
@@ -13,8 +10,6 @@ def faf(
 
     Args:
         labels_comp: The labels of the computed masks.
-        labels_ref: The labels of the ground truth masks.
-        mapped_ref: The matched labels of the ground truth masks.
         mapped_comp: The matched labels of the result masks.
 
     Returns:
@@ -29,10 +24,10 @@ def faf(
         uniques = uniques[counts == 1]
         fp += len(comp) - len(uniques)
 
-    faf = fp / frames
+    faf_score = fp / frames
 
     res = {
-        "FAF": faf,
+        "FAF": faf_score,
         "Frames": frames,
     }
 

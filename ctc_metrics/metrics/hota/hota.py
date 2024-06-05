@@ -4,12 +4,10 @@ from ctc_metrics.utils.representations import track_confusion_matrix
 
 
 def hota(
-        ref_tracks: np.ndarray,
-        comp_tracks: np.ndarray,
         labels_ref: list,
         labels_comp: list,
         mapped_ref: list,
-        mapped_comp: list
+        mapped_comp: list,
 ):
     """
     Computes the HOTA metric. As described in the paper,
@@ -34,7 +32,7 @@ def hota(
         labels_ref, labels_comp, mapped_ref, mapped_comp)
 
     # Calculate Association scores
-    hota = 0
+    hota_score = 0
     for i in range(1, max_label_ref + 1):
         for j in range(1, max_label_comp + 1):
             if track_intersection[i, j] > 0:
@@ -43,14 +41,14 @@ def hota(
                 fna = np.sum(track_intersection[i, :]) - tpa
                 fpa = np.sum(track_intersection[:, j]) - tpa
                 a_corr = tpa / (tpa + fna + fpa)
-                hota += tpa * a_corr
+                hota_score += tpa * a_corr
 
     tp = track_intersection[1:, 1:].sum()
     fp = track_intersection[0, 1:].sum()
     fn = track_intersection[1:, 0].sum()
-    hota = np.sqrt(hota / (tp + fp + fn))
+    hota_score = np.sqrt(hota_score / (tp + fp + fn))
 
     res = {
-        "HOTA": hota,
+        "HOTA": hota_score,
     }
     return res

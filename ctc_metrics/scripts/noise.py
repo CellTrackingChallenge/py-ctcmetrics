@@ -1,14 +1,13 @@
 import argparse
 from os.path import join, basename, dirname, exists
 import copy
+from multiprocessing import Pool, cpu_count
 import numpy as np
 import pandas as pd
-import random
 
 from ctc_metrics.metrics import ALL_METRICS
 from ctc_metrics.utils.filesystem import parse_directories, read_tracking_file, \
     parse_masks
-from ctc_metrics.utils.representations import merge_tracks
 
 from ctc_metrics.scripts.evaluate import match_computed_to_reference_masks, \
     calculate_metrics
@@ -35,9 +34,190 @@ def load_data(
     return comp_tracks, ref_tracks, traj, segm, comp_masks
 
 
+def remove_mitosis(
+        comp_tracks,
+        traj,
+        noise_remove_mitosis,
+        seed
+):
+    if noise_remove_mitosis == 0:
+        return comp_tracks, traj
+    parents, counts = np.unique(
+        comp_tracks[comp_tracks[:, 3] > 0, 3], return_counts=True)
+    parents = parents[counts > 1]
+    num_splits = min(noise_remove_mitosis, len(parents))
+    np.random.seed(seed)
+    np.random.shuffle(parents)
+    for parent in parents[:num_splits]:
+        comp_tracks[np.isin(comp_tracks[:, 3], parent), 3] = 0
+    return comp_tracks, traj
+
+
+def sample_fn(l_comp, max_num_candidates, seed):
+    candidates = []
+    for frame, x in enumerate(l_comp):
+        for i, _ in enumerate(x):
+            candidates.append((frame, i))
+    np.random.seed(seed)
+    np.random.shuffle(candidates)
+    num_fn = min(max_num_candidates, len(candidates))
+    return candidates[:num_fn]
+
+
+def add_false_negatives(
+        comp_tracks,
+        traj,
+        noise_add_false_negative,
+        seed
+):
+    if noise_add_false_negative == 0:
+        return comp_tracks, traj
+
+    next_id = np.max(comp_tracks[:, 0]) + 1
+    l_comp = traj["labels_comp"]
+    m_comp = traj["mapped_comp"]
+    m_ref = traj["mapped_ref"]
+    for frame, i in sample_fn(l_comp, noise_add_false_negative, seed):
+        if i >= len(l_comp[frame]):
+            i = np.random.randint(len(l_comp[frame]))
+        v = l_comp[frame][i]
+        # Remove from current frame
+        while v in m_comp[frame]:
+            _i = m_comp[frame].index(v)
+            m_comp[frame].pop(_i)
+            m_ref[frame].pop(_i)
+        l_comp[frame].pop(i)
+        # Create new trajectory
+        start, end = comp_tracks[comp_tracks[:, 0] == v, 1:3][0]
+        if start == end:
+            comp_tracks = comp_tracks[comp_tracks[:, 0] != v]
+            comp_tracks[comp_tracks[:, 3] == v, 3] = 0
+        elif frame == start:
+            comp_tracks[comp_tracks[:, 0] == v, 1] += 1
+        elif frame == end:
+            comp_tracks[comp_tracks[:, 0] == v, 2] -= 1
+        else:
+            comp_tracks[comp_tracks[:, 0] == v, 2] = frame - 1
+            comp_tracks = np.concatenate(
+                [comp_tracks, [[next_id, frame + 1, end, v]]], axis=0)
+            comp_tracks[comp_tracks[:, 0] == v, 3] = next_id
+            for f in range(frame + 1, end + 1):
+                _l_comp = np.asarray(l_comp[f])
+                _m_comp = np.asarray(m_comp[f])
+                _l_comp[_l_comp == v] = next_id
+                _m_comp[_m_comp == v] = next_id
+                l_comp[f] = _l_comp.tolist()
+                m_comp[f] = _m_comp.tolist()
+
+        next_id += 1
+
+    return comp_tracks, traj
+
+
+def add_false_positives(
+        comp_tracks,
+        traj,
+        noise_add_false_positive,
+        seed
+):
+    if noise_add_false_positive == 0:
+        return comp_tracks, traj
+
+    label = traj["labels_comp"]
+    next_id = np.max(comp_tracks[:, 0]) + 1
+    max_frame = np.max(comp_tracks[:, 2])
+    fp_to_add = int(noise_add_false_positive)
+    np.random.seed(seed)
+    for _ in range(fp_to_add):
+        frame = np.random.randint(max_frame + 1)
+        comp_tracks = np.concatenate(
+            [comp_tracks, [[next_id, frame, frame, 0]]], axis=0)
+        label[frame].append(next_id)
+        next_id += 1
+
+    return comp_tracks, traj
+
+
+def remove_matches(
+        comp_tracks,
+        traj,
+        noise_remove_matches,
+        seed
+):
+    if noise_remove_matches == 0:
+        return comp_tracks, traj
+
+    m_comp = traj["mapped_comp"]
+    m_ref = traj["mapped_ref"]
+    candidates = []
+    for frame in range(1, len(m_comp)):
+        for i in range(len(m_comp[frame])):
+            candidates.append(frame)
+    np.random.seed(seed)
+    np.random.shuffle(candidates)
+    num_unassoc = min(noise_remove_matches, len(candidates))
+    for frame in candidates[:num_unassoc]:
+        total_inds = len(m_comp[frame])
+        i = np.random.randint(total_inds)
+        m_comp[frame].pop(i)
+        m_ref[frame].pop(i)
+
+    return comp_tracks, traj
+
+
+def add_id_switches(
+        comp_tracks,
+        traj,
+        noise_add_idsw,
+        seed
+):
+    if noise_add_idsw == 0:
+        return comp_tracks, traj
+
+    labels_comp = traj["labels_comp"]
+    m_comp = traj["mapped_comp"]
+    candidates = []
+    for frame, x in enumerate(m_comp):
+        if np.unique(x).shape[0] <= 1:
+            continue
+        for _ in range(len(np.unique(x)) - 1):
+            candidates.append(frame)
+    np.random.seed(seed)
+    np.random.shuffle(candidates)
+    num_unassoc = min(noise_add_idsw, len(candidates))
+    for frame in candidates[:num_unassoc]:
+        # Select two random indices
+        comp = m_comp[frame]
+        c1, c2 = np.random.choice(comp, 2, replace=False)
+        end1 = int(comp_tracks[comp_tracks[:, 0] == c1, 2].squeeze())
+        end2 = int(comp_tracks[comp_tracks[:, 0] == c2, 2].squeeze())
+        children1 = comp_tracks[:, 3] == c1
+        children2 = comp_tracks[:, 3] == c2
+        # Swap the two indices
+        for f in range(frame, max(end1, end2) + 1):
+            _l_comp = np.asarray(labels_comp[f])
+            _comp = np.asarray(m_comp[f])
+            i1 = _comp == c1
+            i2 = _comp == c2
+            _comp[i1] = c2
+            _comp[i2] = c1
+            i1 = _l_comp == c1
+            i2 = _l_comp == c2
+            _l_comp[i1] = c2
+            _l_comp[i2] = c1
+            labels_comp[f] = _l_comp.tolist()
+            m_comp[f] = _comp.tolist()
+        i1 = comp_tracks[:, 0] == c1
+        i2 = comp_tracks[:, 0] == c2
+        comp_tracks[i1, 2] = end2
+        comp_tracks[i2, 2] = end1
+        comp_tracks[children1, 3] = c2
+        comp_tracks[children2, 3] = c1
+
+    return comp_tracks, traj
+
 def add_noise(
         comp_tracks: np.ndarray,
-        ref_tracks: np.ndarray,
         traj: dict,
         seed: int = 0,
         noise_add_false_negative: int = 0,
@@ -50,10 +230,9 @@ def add_noise(
     Add noise to the data.
 
     Args:
-        comp_tracks:
-        ref_tracks:
-        traj:
-        seed:
+        comp_tracks: The computed tracks.
+        traj: The trajectories.
+        seed: The seed for the random number generator.
         noise_add_false_negative:
             Adds n false negatives to the data, where the parameter is n.
         noise_remove_mitosis:
@@ -74,136 +253,25 @@ def add_noise(
     comp_tracks = np.copy(comp_tracks)
     traj = copy.deepcopy(traj)
 
-    # Remove all children of mitosis events
-    if noise_remove_mitosis > 0:
-        parents, counts = np.unique(
-            comp_tracks[comp_tracks[:, 3] > 0, 3], return_counts=True)
-        parents = parents[counts > 1]
-        num_splits = min(noise_remove_mitosis, len(parents))
-        np.random.seed(seed)
-        np.random.shuffle(parents)
-        for parent in parents[:num_splits]:
-            comp_tracks[np.isin(comp_tracks[:, 3], parent), 3] = 0
+    # Remove children of mitosis events
+    comp_tracks, traj = remove_mitosis(
+        comp_tracks, traj, noise_remove_mitosis, seed)
 
     # Add false negatives
-    if noise_add_false_negative > 0:
-        next_id = np.max(comp_tracks[:, 0]) + 1
-        l_comp = traj["labels_comp"]
-        m_comp = traj["mapped_comp"]
-        m_ref = traj["mapped_ref"]
-        candidates = []
-        for frame in range(0, len(l_comp)):
-            for i in range(len(l_comp[frame])):
-                candidates.append((frame, i))
-        np.random.seed(seed)
-        np.random.shuffle(candidates)
-        num_fn = min(noise_add_false_negative, len(candidates))
-        for frame, i in candidates[:num_fn]:
-            if i >= len(l_comp[frame]):
-                i = np.random.randint(len(l_comp[frame]))
-            v = l_comp[frame][i]
-            # Remove from current frame
-            while v in m_comp[frame]:
-                _i = m_comp[frame].index(v)
-                m_comp[frame].pop(_i)
-                m_ref[frame].pop(_i)
-            l_comp[frame].pop(i)
-            # Create new trajectory
-            start, end = comp_tracks[comp_tracks[:, 0] == v, 1:3][0]
-            if start == end:
-                comp_tracks = comp_tracks[comp_tracks[:, 0] != v]
-                comp_tracks[comp_tracks[:, 3] == v, 3] = 0
-            elif frame == start:
-                comp_tracks[comp_tracks[:, 0] == v, 1] += 1
-            elif frame == end:
-                comp_tracks[comp_tracks[:, 0] == v, 2] -= 1
-            else:
-                comp_tracks[comp_tracks[:, 0] == v, 2] = frame - 1
-                comp_tracks = np.concatenate(
-                    [comp_tracks, [[next_id, frame + 1, end, v]]], axis=0)
-                comp_tracks[comp_tracks[:, 0] == v, 3] = next_id
-                for f in range(frame + 1, end + 1):
-                    _l_comp = np.asarray(l_comp[f])
-                    _m_comp = np.asarray(m_comp[f])
-                    _l_comp[_l_comp == v] = next_id
-                    _m_comp[_m_comp == v] = next_id
-                    l_comp[f] = _l_comp.tolist()
-                    m_comp[f] = _m_comp.tolist()
-
-            next_id += 1
+    comp_tracks, traj = add_false_negatives(
+        comp_tracks, traj, noise_add_false_negative, seed)
 
     # Add false positives
-    if noise_add_false_positive > 0:
-        label = traj["labels_comp"]
-        next_id = np.max(comp_tracks[:, 0]) + 1
-        max_frame = np.max(comp_tracks[:, 2])
-        fp_to_add = int(noise_add_false_positive)
-        np.random.seed(seed)
-        for _ in range(fp_to_add):
-            frame = np.random.randint(max_frame + 1)
-            comp_tracks = np.concatenate(
-                [comp_tracks, [[next_id, frame, frame, 0]]], axis=0)
-            label[frame].append(next_id)
-            next_id += 1
+    comp_tracks, traj = add_false_positives(
+        comp_tracks, traj, noise_add_false_positive, seed)
 
     # Unmatch true positives
-    if noise_remove_matches > 0:
-        m_comp = traj["mapped_comp"]
-        m_ref = traj["mapped_ref"]
-        candidates = []
-        for frame in range(1, len(m_comp)):
-            for i in range(len(m_comp[frame])):
-                candidates.append(frame)
-        np.random.seed(seed)
-        np.random.shuffle(candidates)
-        num_unassoc = min(noise_remove_matches, len(candidates))
-        for frame in candidates[:num_unassoc]:
-            total_inds = len(m_comp[frame])
-            i = np.random.randint(total_inds)
-            m_comp[frame].pop(i)
-            m_ref[frame].pop(i)
+    comp_tracks, traj = remove_matches(
+        comp_tracks, traj, noise_remove_matches, seed)
 
     # Add IDSw
-    if noise_add_idsw > 0:
-        labels_comp = traj["labels_comp"]
-        m_comp = traj["mapped_comp"]
-        candidates = []
-        for frame in range(len(m_comp)):
-            if np.unique(m_comp[frame]).shape[0] <= 1:
-                continue
-            for i in range(len(np.unique(m_comp[frame])) - 1):
-                candidates.append(frame)
-        np.random.seed(seed)
-        np.random.shuffle(candidates)
-        num_unassoc = min(noise_add_idsw, len(candidates))
-        for frame in candidates[:num_unassoc]:
-            # Select two random indices
-            comp = m_comp[frame]
-            c1, c2 = np.random.choice(comp, 2, replace=False)
-            end1 = int(comp_tracks[comp_tracks[:, 0] == c1, 2].squeeze())
-            end2 = int(comp_tracks[comp_tracks[:, 0] == c2, 2].squeeze())
-            children1 = comp_tracks[:, 3] == c1
-            children2 = comp_tracks[:, 3] == c2
-            # Swap the two indices
-            for f in range(frame, max(end1, end2) + 1):
-                _l_comp = np.asarray(labels_comp[f])
-                _comp = np.asarray(m_comp[f])
-                i1 = _comp == c1
-                i2 = _comp == c2
-                _comp[i1] = c2
-                _comp[i2] = c1
-                i1 = _l_comp == c1
-                i2 = _l_comp == c2
-                _l_comp[i1] = c2
-                _l_comp[i2] = c1
-                labels_comp[f] = _l_comp.tolist()
-                m_comp[f] = _comp.tolist()
-            i1 = comp_tracks[:, 0] == c1
-            i2 = comp_tracks[:, 0] == c2
-            comp_tracks[i1, 2] = end2
-            comp_tracks[i2, 2] = end1
-            comp_tracks[children1, 3] = c2
-            comp_tracks[children2, 3] = c1
+    comp_tracks, traj = add_id_switches(
+        comp_tracks, traj, noise_add_idsw, seed)
 
     return comp_tracks, traj
 
@@ -229,109 +297,69 @@ def is_new_setting(
 
 def append_results(
         path: str,
-        results: dict,
+        results
 ):
     # Check if the file exists
-    results = pd.DataFrame.from_dict(results, orient="index").T
+    results = [pd.DataFrame.from_dict(r, orient="index").T for r in results]
     if exists(path):
         df = pd.read_csv(path, index_col="index", sep=";")
-        df = pd.concat([df, results])
+        df = pd.concat([df] + results)
         df.reset_index(drop=True, inplace=True)
     else:
-        df = results
+        df = pd.concat(results)
     df.to_csv(path, index_label="index", sep=";")
 
 
-def evaluate_sequence(
-        gt: str,
+def run_noisy_sample(
+        comp_tracks: np.ndarray,
+        ref_tracks: np.ndarray,
+        traj: dict,
+        segm: dict,
+        metrics: list,
         name: str,
-        threads: int = 0,
-        csv_file: str = None,
-        shuffle: bool = False,
+        setting: dict,
+        default_setting: dict,
 ):
     """
-    Evaluates a single sequence
+    Run a noisy sample
 
     Args:
-        res: The path to the results.
-        gt: The path to the ground truth.
-        multiprocessing: Whether to use multiprocessing (recommended!).
-        csv_file: The path to the csv file to store the results.
+        comp_tracks: The computed tracks.
+        ref_tracks: The reference tracks.
+        traj: The trajectories.
+        segm: The segmentation masks.
+        metrics: The metrics to calculate.
+        name: The name of the sequence.
+        setting: The noise setting.
+        default_setting: The default setting without noise.
 
     Returns:
         The results stored in a dictionary.
-
     """
+    # Add noise to the data and calculate the metrics
+    n_comp_tracks, n_traj = add_noise(
+        comp_tracks, traj, **setting)
 
-    print("Run noise test on ", gt, end="...")
-    # Prepare all metrics
-    metrics = copy.deepcopy(ALL_METRICS)
-    metrics.remove("Valid")
-    metrics.remove("SEG")
+    results = {"name": name}
+    results.update(default_setting)
 
-    comp_tracks, ref_tracks, traj, segm, comp_masks = load_data(gt, threads)
-
-    # Selection of noise settings
-    repeats = 10
-    noise_settings = [{}]
-
-    # # Add mitosis detection noise
-    # parents, counts = np.unique(
-    #     comp_tracks[comp_tracks[:, 3] > 0, 3], return_counts=True)
-    # num_parents = len(parents[counts > 1])
-    # for p in range(1, num_parents+1   ):
-    #     for i in range(0, repeats):
-    #         noise_settings.append({
-    #             "seed": i,
-    #             "noise_remove_mitosis": p,
-    #         })
-    #
-    # # Add false negative noise
-    num_false_negs_max = np.sum(ref_tracks[:, 2] - ref_tracks[:, 1] + 1)
-    # for fn in range(1, min(500, num_false_negs_max)):
-    #     for i in range(0, repeats):
-    #         noise_settings.append({
-    #             "seed": i,
-    #             "noise_add_false_negative": fn,
-    #         })
-    #
-    # # Add false positive noise
-    # for fp in range(1, 500):
-    #     for i in range(0, repeats):
-    #         noise_settings.append({
-    #             "seed": i,
-    #             "noise_add_false_positive": fp,
-    #         })
+    resulting_metrics = calculate_metrics(
+        n_comp_tracks, ref_tracks, n_traj, segm, metrics,
+        is_valid=True
+    )
+    results.update(resulting_metrics)
+    return results
 
 
-    number = 9
-    csv_file = csv_file[:-4] + f"_{number}.csv"
-
-    # Add matching noise
-    for match in range(1, min(500, num_false_negs_max)):
-        for i in range(0, repeats):
-            if i != number:
-               continue
-            noise_settings.append({
-                "seed": i,
-                "noise_remove_matches": match,
-            })
-
-    # Add ID switch noise
-    for idsw in range(1, 500):
-        for i in range(0, repeats):
-            if i != number:
-               continue
-            noise_settings.append({
-                "seed": i,
-                "noise_add_idsw": idsw,
-            })
-
-    # if shuffle:
-    #     np.random.shuffle(noise_settings)
+def filter_existing_noise_settings(
+        noise_settings: list,
+        csv_file: str,
+        name: str,
+):
     df = None
-    for i, setting in enumerate(noise_settings):
-        print(f"\rRun noise test on ", gt, f"\t{i + 1}\t/ {len(noise_settings)}", end="")
+    new_noise_settings = []
+
+    for _, setting in enumerate(noise_settings):
         # Check if noise setting is new
         default_setting = {
             "seed": 0,
@@ -347,26 +375,146 @@ def evaluate_sequence(
         is_new, df = is_new_setting(default_setting, csv_file, name, df)
         if not is_new:
             continue
-        df = None
-        # Add noise to the data and calculate the metrics
-        n_comp_tracks, n_traj = add_noise(
-            comp_tracks, ref_tracks, traj, **setting)
+        new_noise_settings.append((setting, default_setting))
+    return new_noise_settings
 
-        results = dict(name=name)
 
-        metrics = calculate_metrics(
-            n_comp_tracks, ref_tracks, n_traj, segm, comp_masks, metrics, is_valid=True)
-        results.update(metrics)
-        results.update(default_setting)
-        append_results(csv_file, results)
+def create_noise_settings(
+        repeats: int,
+        num_false_neg: int,
+        num_false_pos: int,
+        num_idsw: int,
+        num_matches: int,
+        comp_tracks: np.ndarray,
+        ref_tracks: np.ndarray,
+):
+    # Extract some statistics
+    parents, counts = np.unique(
+        comp_tracks[comp_tracks[:, 3] > 0, 3], return_counts=True)
+    num_false_negs_max = int(np.sum(ref_tracks[:, 2] - ref_tracks[:, 1] + 1))
 
+    # Create dictionary
+    noise_settings = [{}]
+
+    for i in range(0, repeats):
+        # Add mitosis detection noise
+        for x in range(1, len(parents[counts > 1]) + 1):
+            noise_settings.append({"seed": i, "noise_remove_mitosis": x})
+
+        # Add false negative noise
+        for x in range(1, min(num_false_neg, num_false_negs_max)):
+            noise_settings.append({"seed": i, "noise_add_false_negative": x})
+
+        # Add false positive noise
+        for x in range(1, num_false_pos):
+            noise_settings.append({"seed": i, "noise_add_false_positive": x})
+
+        # Add matching noise
+        for x in range(1, min(num_matches, num_false_negs_max)):
+            noise_settings.append({"seed": i, "noise_remove_matches": x})
+
+        # Add ID switch noise
+        for x in range(1, num_idsw):
+            noise_settings.append({"seed": i, "noise_add_idsw": x})
+
+    return noise_settings
+
+def evaluate_sequence(
+        gt: str,
+        name: str,
+        threads: int = 0,
+        csv_file: str = None,
+        save_after: int = 20,
+        repeats: int = 10,
+        num_false_neg: int = 500,
+        num_false_pos: int = 500,
+        num_idsw: int = 500,
+        num_matches: int = 500,
+):
+    """
+    Evaluates a single sequence
+
+    Args:
+        gt: The path to the ground truth.
+        name: The name of the sequence.
+        threads: The number of threads to use for multiprocessing.
+        csv_file: The path to the csv file to store the results.
+        save_after: Save results after n runs.
+        repeats: The number of repeats for each noise setting.
+        num_false_neg: The number of false negatives to add.
+        num_false_pos: The number of false positives to add.
+        num_idsw: The number of ID switches to add.
+        num_matches: The number of matches to remove.
+
+    """
+
+    print("Run noise test on ", gt, end="...")
+    # Prepare all metrics
+    metrics = copy.deepcopy(ALL_METRICS)
+    metrics.remove("Valid")
+    metrics.remove("SEG")
+
+    comp_tracks, ref_tracks, traj, segm, _ = load_data(gt, threads)
+
+
+
+    # Selection of noise settings
+    noise_settings = create_noise_settings(
+        repeats, num_false_neg, num_false_pos, num_idsw, num_matches,
+        comp_tracks, ref_tracks
+    )
+
+    # Filter existing noise settings
+    new_noise_settings = filter_existing_noise_settings(
+        noise_settings, csv_file, name
+    )
+
+    # Evaluate new noise settings
+    if threads == 1:
+        results_list = []
+        for i, (setting, default_setting) in enumerate(new_noise_settings):
+            print(
+                f"\rRun noise test on {gt}, \t{i + 1}\t/ {len(new_noise_settings)}",
+                end=""
+            )
+            # Add noise to the data and calculate the metrics
+            results = run_noisy_sample(
+                comp_tracks, ref_tracks, traj, segm, metrics,
+                name, setting, default_setting
+            )
+            # Aggregate results and store them every n runs
+            results_list.append(results)
+            if len(results_list) == save_after or new_noise_settings[-1] == setting:
+                append_results(csv_file, results_list)
+                results_list = []
+
+    else:
+        threads = cpu_count() if threads == 0 else threads
+        with Pool(threads) as p:
+            input_list = []
+            for i, (setting, default_setting) in enumerate(new_noise_settings):
+                print(
+                    f"\rRun noise test on {gt}, \t{i + 1}\t/ {len(new_noise_settings)}",
+                    end=""
+                )
+                # Add noise to the data and calculate the metrics
+                input_list.append((
+                    comp_tracks, ref_tracks, traj, segm, metrics,
+                    name, setting, default_setting
+                ))
+                # Process in parallel and
+                if len(input_list) == save_after or new_noise_settings[-1] == setting:
+                    results_list = p.starmap(run_noisy_sample, input_list)
+                    append_results(csv_file, results_list)
+                    input_list = []
     print("")
 
 
 def evaluate_all(
         gt_root: str,
         csv_file: str = None,
-        threads: int = 0
+        threads: int = 0,
+        **kwargs
 ):
     """
     Evaluate all sequences in a directory
@@ -375,16 +523,12 @@ def evaluate_all(
         gt_root: The root directory of the ground truth.
         csv_file: The path to the csv file to store the results.
         threads: The number of threads to use for multiprocessing.
+        **kwargs: The noise settings.
 
-    Returns:
-        The results stored in a dictionary.
     """
     ret = parse_directories(gt_root, gt_root)
-    i = 0
-    for res, gt, name in zip(*ret):
-        if 12 > i >= 0:
-            evaluate_sequence(gt, name, threads, csv_file)
-        i += 1
+    for _, gt, name in zip(*ret):
+        evaluate_sequence(gt, name, threads, csv_file, **kwargs)
 
 
 def parse_args():
@@ -394,7 +538,12 @@ def parse_args():
     parser.add_argument('-r', '--recursive', action="store_true")
     parser.add_argument('--csv-file', type=str, default=None)
     parser.add_argument('-n', '--num-threads', type=int, default=0)
-    #parser.add_argument('-s', type=int, default=-1)
+    parser.add_argument('--num-false-pos', type=int, default=500)
+    parser.add_argument('--num-false-neg', type=int, default=500)
+    parser.add_argument('--num-idsw', type=int, default=500)
+    parser.add_argument('--num-matches', type=int, default=500)
+    parser.add_argument('--save-after', type=int, default=20)
+    parser.add_argument('--repeats', type=int, default=10)
     args = parser.parse_args()
     return args
 
@@ -406,13 +555,22 @@ def main():
     args = parse_args()
 
     # Evaluate sequence or whole directory
+    experiments = {
+        "num_false_pos": args.num_false_pos,
+        "num_false_neg": args.num_false_neg,
+        "num_idsw": args.num_idsw,
+        "num_matches": args.num_matches,
+        "repeats": args.repeats,
+    }
     if args.recursive:
-        evaluate_all(args.gt, args.csv_file, args.num_threads)
+        evaluate_all(args.gt, args.csv_file, args.num_threads, **experiments)
     else:
         challenge = basename(dirname(args.gt))
         sequence = basename(args.gt).replace("_GT", "")
         name = challenge + "_" + sequence
-        evaluate_sequence(args.gt, name, args.num_threads, args.csv_file)
+        evaluate_sequence(
+            args.gt, name, args.num_threads, args.csv_file, **experiments
+        )
 
 
 if __name__ == "__main__":

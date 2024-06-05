@@ -48,6 +48,8 @@ def chota(
 
 
     Args:
+        ref_tracks: The ground truth tracks.
+        comp_tracks: The computed tracks.
         labels_comp: The labels of the computed masks.
         labels_ref: The labels of the ground truth masks.
         mapped_ref: The matched labels of the ground truth masks.
@@ -60,17 +62,14 @@ def chota(
     cliques_ref = cluster_clique(ref_tracks)
     cliques_comp = cluster_clique(comp_tracks)
 
-    max_label_ref = int(np.max(np.concatenate(labels_ref)))
-    max_label_comp = int(np.max(np.concatenate(labels_comp)))
-
     # Gather association data
     track_intersection = track_confusion_matrix(
         labels_ref, labels_comp, mapped_ref, mapped_comp)
 
     # Calculate Association scores
-    hota = 0
-    for i in range(1, max_label_ref + 1):
-        for j in range(1, max_label_comp + 1):
+    chota_score = 0
+    for i in range(1, int(np.max(np.concatenate(labels_ref))) + 1):
+        for j in range(1, int(np.max(np.concatenate(labels_comp))) + 1):
             if track_intersection[i, j] > 0:
                 cliques_ref_i = cliques_ref[i]
                 cliques_comp_j = cliques_comp[j]
@@ -79,25 +78,24 @@ def chota(
                 roi2 = np.zeros_like(track_intersection, dtype=bool)
                 roi1[cliques_ref_i, :] = True
                 roi2[:, cliques_comp_j] = True
-                roi = roi1 & roi2
 
                 # Calculate the HOTA score
-                tpa = np.sum(track_intersection[roi])
+                tpa = np.sum(track_intersection[roi1 & roi2])
                 fna = np.sum(track_intersection[cliques_ref_i, :]) - tpa
                 fpa = np.sum(track_intersection[:, cliques_comp_j]) - tpa
 
                 # Reweight and add to hota score
                 num_pixels = track_intersection[i, j]
                 a_corr = tpa / (tpa + fna + fpa)
-                hota += num_pixels * a_corr
+                chota_score += num_pixels * a_corr
 
     tp = track_intersection[1:, 1:].sum()
     fp = track_intersection[0, 1:].sum()
     fn = track_intersection[1:, 0].sum()
-    hota = np.sqrt(hota / (tp + fp + fn))
+    chota_score = np.sqrt(chota_score / (tp + fp + fn))
 
     res = {
-        "CHOTA": hota,
+        "CHOTA": chota_score,
     }
     return res
 

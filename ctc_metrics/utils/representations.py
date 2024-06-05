@@ -1,9 +1,11 @@
+# pylint: disable=no-name-in-module
+
 import os.path
 
 import numpy as np
 import tifffile as tiff
 from sklearn.metrics import confusion_matrix
-from scipy.sparse import lil_array
+from scipy.sparse import lil_array  # noqa
 
 
 def track_confusion_matrix(
@@ -182,10 +184,9 @@ def create_edge_mapping(
         id1, id2 = l_gt1[ind1], l_gt2[ind2]
         t1, t2 = np.ones_like(id1) * current_t, np.ones_like(id1) * current_t + 1
         ind1, ind2 = ind1 + ind_v, ind2 + ind_v + len(l_gt1)
-        det_test1, det_test2 = V_tp[ind1], V_tp[ind2]
         edges = np.stack([
-            ind1, id1, det_test1, t1,
-            ind2, id2, det_test2, t2,
+            ind1, id1, V_tp[ind1], t1,
+            ind2, id2,  V_tp[ind2], t2,
             np.zeros_like(id1)], axis=1)
         all_edges.append(edges)
         ind_v += len(l_gt1)
@@ -199,10 +200,8 @@ def create_edge_mapping(
         ind1 = np.argwhere(labels[end1] == label1)[0] + cum_inds[end1]
         ind2 = np.argwhere(labels[birth2] == label2)[0] + cum_inds[birth2]
         ind1, ind2 = int(ind1), int(ind2)
-        t1, t2 = end1, birth2
-        det_test1, det_test2 = int(V_tp[ind1]), int(V_tp[ind2])
         edges = np.asarray(
-            [ind1, label1, det_test1, t1, ind2, label2, det_test2, t2, 1]
+            [ind1, label1, int(V_tp[ind1]), end1, ind2, label2, int(V_tp[ind2]), birth2, 1]
         )[None, :]
         all_edges.append(edges)
     return np.concatenate(all_edges, axis=0).astype(int)
@@ -389,9 +388,9 @@ def assign_comp_to_ref(
 
 
 def merge_tracks(
-        tracks,
-        labels,
-        mapped
+        tracks: np.ndarray,
+        labels: list,
+        mapped: list
 ):
     """
     Merges tracks that belong to the same cell trajectory. This can happen, if
@@ -417,18 +416,17 @@ def merge_tracks(
     children = [tracks[tracks[:, 3] == p][0, 0] for p in parents]
 
     # Merge tracks
-    need_to_merge = len(children) > 0
     mapping = {x: x for x in np.unique(tracks[:, 0])}
     while len(children) > 0:
         for parent, child in zip(parents, children):
             if parent not in children:
                 break
-        mapping[child] = mapping[parent]
-        children.remove(child)
-        parents.remove(parent)
+            mapping[child] = mapping[parent]
+            children.remove(child)
+            parents.remove(parent)
 
     # Relabel such that the labels are continuous
-    remaining_labels = sorted(np.unique([x for x in mapping.values()]))
+    remaining_labels = sorted(np.unique(list(mapping.values())))
     new_labels = list(range(1, len(remaining_labels) + 1))
     for k, v in mapping.items():
         new_v = new_labels[remaining_labels.index(v)]

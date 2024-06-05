@@ -1,10 +1,46 @@
 import numpy as np
 from scipy.optimize import linear_sum_assignment
 
+from ctc_metrics.utils.representations import track_confusion_matrix
+
+def get_idf1_stats(
+        track_intersection,
+        costs,
+        max_label_ref,
+        max_label_comp
+):
+    # Hungarian Algorithm
+    all_gt = np.sum(track_intersection[1:], axis=1)
+    all_comp = np.sum(track_intersection[:, 1:], axis=0)
+
+    row_ind, col_ind = linear_sum_assignment(costs)
+
+    IDFN = all_gt.sum()
+    IDFP = all_comp.sum()
+    for i, j in zip(row_ind, col_ind):
+        if i < max_label_ref and j < max_label_comp:
+            IDFN -= track_intersection[i + 1, j + 1]
+            IDFP -= track_intersection[i + 1, j + 1]
+
+    assert (track_intersection[1:, :].sum() - IDFN ==
+            track_intersection[:, 1:].sum() - IDFP)
+
+    IDTP = track_intersection[1:, :].sum() - IDFN
+
+    IDP = IDTP / (IDTP + IDFP)
+    IDR = IDTP / (IDTP + IDFN)
+    IDF1 = 2 * IDTP / (2 * IDTP + IDFP + IDFN)
+
+    return {
+        "IDF1": IDF1,
+        "IDP": IDP,
+        "IDR": IDR,
+        "IDTP": IDTP,
+        "IDFP": IDFP,
+        "IDFN": IDFN
+    }
 
 def idf1(
-        ref_tracks: np.ndarray,
-        comp_tracks: np.ndarray,
         labels_ref: list,
         labels_comp: list,
         mapped_ref: list,
@@ -28,30 +64,9 @@ def idf1(
 
     max_label_ref = int(np.max(np.concatenate(labels_ref)))
     max_label_comp = int(np.max(np.concatenate(labels_comp)))
-
-    # Gather association data
-    track_intersection = np.zeros((max_label_ref + 1, max_label_comp + 1))
-    total_ref = np.zeros(max_label_ref + 1)
-    total_comp = np.zeros(max_label_comp + 1)
-    for ref, comp, m_ref, m_comp in zip(
-            labels_ref, labels_comp, mapped_ref, mapped_comp):
-        # Fill track intersection matrix
-        ref = np.asarray(ref).astype(int)
-        comp = np.asarray(comp).astype(int)
-        m_ref = np.asarray(m_ref).astype(int)
-        m_comp = np.asarray(m_comp).astype(int)
-        _, counts = np.unique(m_comp, return_counts=True)
-        double_associations = np.sum(counts[counts > 1] - 1)
-        if len(m_ref) > 0:
-            track_intersection[m_ref, m_comp] += 1
-        fna = ref[np.isin(ref, m_ref, invert=True)]
-        track_intersection[fna, 0] += 1
-        fpa = comp[np.isin(comp, m_comp, invert=True)]
-        track_intersection[0, fpa] += 1
-        total_comp[comp] += 1
-        total_ref[ref] += 1
-        assert len(ref) == len(m_ref) + len(fna), (len(ref), len(m_ref), len(fna), double_associations)
-        assert len(comp) + double_associations == len(m_comp) + len(fpa), (len(comp), len(m_comp), len(ref), len(m_ref), len(fpa), double_associations, comp, m_comp, m_ref, ref)
+    track_intersection = track_confusion_matrix(
+        labels_ref, labels_comp, mapped_ref, mapped_comp
+    )
 
     # Assign Tracks
     total_ids = max_label_ref + max_label_comp
@@ -71,35 +86,6 @@ def idf1(
     for j, c in enumerate(np.sum(track_intersection[:, 1:], axis=0)):
         costs[max_label_ref + j, j] = c
 
-    # Hungarian Algorithm
-    all_gt = np.sum(track_intersection[1:], axis=1)
-    all_comp = np.sum(track_intersection[:, 1:], axis=0)
-
-    row_ind, col_ind = linear_sum_assignment(costs)
-    IDFN = all_gt.sum()
-    IDFP = all_comp.sum()
-    for i, j in zip(row_ind, col_ind):
-        if i < max_label_ref and j < max_label_comp:
-            IDFN -= track_intersection[i + 1, j + 1]
-            IDFP -= track_intersection[i + 1, j + 1]
-
-    assert (track_intersection[1:, :].sum() - IDFN ==
-            track_intersection[:, 1:].sum() - IDFP)
-
-    IDTP = track_intersection[1:, :].sum() - IDFN
-
-    IDP = IDTP / (IDTP + IDFP)
-    IDR = IDTP / (IDTP + IDFN)
-    IDF1 = 2 * IDTP / (2 * IDTP + IDFP + IDFN)
-
-    res = {
-        "IDF1": IDF1,
-        "IDP": IDP,
-        "IDR": IDR,
-        "IDTP": IDTP,
-        "IDFP": IDFP,
-        "IDFN": IDFN
-    }
-
-    return res
-
+    return get_idf1_stats(
+        track_intersection, costs, max_label_ref, max_label_comp
+    )

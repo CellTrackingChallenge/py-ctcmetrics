@@ -35,5 +35,5 @@ def bio(
         total_metrics += 1
     else:
         cca = 0
-    bio = (ct + tf + bc + cca) / total_metrics
-    return bio
+    bio_score = (ct + tf + bc + cca) / total_metrics
+    return bio_score
