@@ -5,7 +5,7 @@ import os.path
 import numpy as np
 import tifffile as tiff
 from sklearn.metrics import confusion_matrix
-from scipy.sparse import lil_array  # noqa
+from scipy.sparse import lil_array
 
 
 def track_confusion_matrix(

@@ -3,7 +3,20 @@ import numpy as np
 from ctc_metrics.utils.representations import track_confusion_matrix
 
 
-def cluster_clique(tracks):
+def cluster_clique(
+        tracks: np.ndarray
+):
+    """
+    Clusters the tracks into cliques. A clique is a set of tracks that are
+    connected by parent-child relationships.
+
+    Args:
+        tracks: The result tracks.
+
+    Returns:
+        The cliques. A dictionary with the track id as key and the clique as
+        value.
+    """
     # Cluster ref cliques
     track_id = np.unique(tracks[:, 0]).astype(int)
     track_parents = np.asarray(
@@ -48,24 +61,41 @@ def chota(
 
 
     Args:
-        ref_tracks: The ground truth tracks.
-        comp_tracks: The computed tracks.
-        labels_comp: The labels of the computed masks.
-        labels_ref: The labels of the ground truth masks.
-        mapped_ref: The matched labels of the ground truth masks.
-        mapped_comp: The matched labels of the result masks.
+        ref_tracks: The ground truth tracks. A (n,4) numpy ndarray with columns:
+            - label
+            - birth frame
+            - end frame
+            - parent
+        comp_tracks: The computed tracks. A (n,4) numpy ndarray with columns:
+            - label
+            - birth frame
+            - end frame
+            - parent
+        labels_comp: The labels of the computed masks. A list of length equal
+            to the number of frames. Each element is a list with the labels of
+            the computed masks in the respective frame.
+        labels_ref: The labels of the ground truth masks. A list of length
+            equal to the number of frames. Each element is a list with the
+            labels of the ground truth masks in the respective frame.
+        mapped_ref: The matched labels of the ground truth masks. A list of
+            length equal to the number of frames. Each element is a list with
+            the matched labels of the ground truth masks in the respective
+            frame. The elements are in the same order as the corresponding
+            elements in mapped_comp.
+        mapped_comp: The matched labels of the result masks. A list of length
+            equal to the number of frames. Each element is a list with the
+            matched labels of the result masks in the respective frame. The
+            elements are in the same order as the corresponding elements in
+            mapped_ref.
 
     Returns:
-        The chota tracks metric.
+        The CHOTA tracks metric.
     """
-
+    # Gather association data
     cliques_ref = cluster_clique(ref_tracks)
     cliques_comp = cluster_clique(comp_tracks)
-
-    # Gather association data
     track_intersection = track_confusion_matrix(
         labels_ref, labels_comp, mapped_ref, mapped_comp)
-
     # Calculate Association scores
     chota_score = 0
     for i in range(1, int(np.max(np.concatenate(labels_ref))) + 1):
@@ -73,30 +103,23 @@ def chota(
             if track_intersection[i, j] > 0:
                 cliques_ref_i = cliques_ref[i]
                 cliques_comp_j = cliques_comp[j]
-
                 roi1 = np.zeros_like(track_intersection, dtype=bool)
                 roi2 = np.zeros_like(track_intersection, dtype=bool)
                 roi1[cliques_ref_i, :] = True
                 roi2[:, cliques_comp_j] = True
-
                 # Calculate the HOTA score
                 tpa = np.sum(track_intersection[roi1 & roi2])
                 fna = np.sum(track_intersection[cliques_ref_i, :]) - tpa
                 fpa = np.sum(track_intersection[:, cliques_comp_j]) - tpa
-
                 # Reweight and add to hota score
                 num_pixels = track_intersection[i, j]
                 a_corr = tpa / (tpa + fna + fpa)
                 chota_score += num_pixels * a_corr
-
+    # Calculate the finalCHOTA score
     tp = track_intersection[1:, 1:].sum()
     fp = track_intersection[0, 1:].sum()
     fn = track_intersection[1:, 0].sum()
     chota_score = np.sqrt(chota_score / (tp + fp + fn))
-
-    res = {
-        "CHOTA": chota_score,
-    }
-    return res
+    return {"CHOTA": chota_score}
 
 

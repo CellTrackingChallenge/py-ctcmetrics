@@ -17,43 +17,65 @@ def load_data(
         gt: str,
         threads: int = 0,
 ):
+    """
+    Load the data from the ground truth and use it as computed and reference
+    data.
+
+    Args:
+        gt: The path to the ground truth.
+        threads: The number of threads to use for multiprocessing.
+
+    Returns:
+        The computed and reference tracks, the trajectories and the segmentation
+        masks.
+    """
     # Read tracking files and parse mask files
     ref_tracks = read_tracking_file(join(gt, "TRA", "man_track.txt"))
     comp_tracks = np.copy(ref_tracks)
     ref_tra_masks = parse_masks(join(gt, "TRA"))
     comp_masks = ref_tra_masks
     assert len(ref_tra_masks) > 0, f"{gt}: Ground truth masks is 0!)"
-
     # Match golden truth tracking masks to result masks
     traj = match_computed_to_reference_masks(
         ref_tra_masks, comp_masks, threads=threads)
-
     # Match golden truth segmentation masks to result masks
     segm = {}
-
     return comp_tracks, ref_tracks, traj, segm, comp_masks
 
 
 def remove_mitosis(
-        comp_tracks,
-        traj,
-        noise_remove_mitosis,
-        seed
+        comp_tracks: np.ndarray,
+        num_to_remove: int,
+        seed: int,
 ):
-    if noise_remove_mitosis == 0:
-        return comp_tracks, traj
+    """
+    Remove mitosis events by removing the mother daughter relation.
+
+    Args:
+        comp_tracks: The computed tracks.
+        num_to_remove: The number of mitosis events to remove.
+        seed: The seed for the random number generator.
+
+    Returns:
+        The computed tracks with the mitosis events removed.
+    """
+    if num_to_remove == 0:
+        return comp_tracks
     parents, counts = np.unique(
         comp_tracks[comp_tracks[:, 3] > 0, 3], return_counts=True)
     parents = parents[counts > 1]
-    num_splits = min(noise_remove_mitosis, len(parents))
+    num_splits = min(num_to_remove, len(parents))
     np.random.seed(seed)
     np.random.shuffle(parents)
     for parent in parents[:num_splits]:
         comp_tracks[np.isin(comp_tracks[:, 3], parent), 3] = 0
-    return comp_tracks, traj
+    return comp_tracks
 
 
 def sample_fn(l_comp, max_num_candidates, seed):
+    """
+    Sample false negatives.
+    """
     candidates = []
     for frame, x in enumerate(l_comp):
         for i, _ in enumerate(x):
@@ -65,11 +87,23 @@ def sample_fn(l_comp, max_num_candidates, seed):
 
 
 def add_false_negatives(
-        comp_tracks,
-        traj,
-        noise_add_false_negative,
-        seed
+        comp_tracks: np.ndarray,
+        traj: dict,
+        noise_add_false_negative: int,
+        seed: int
 ):
+    """
+    Add false negatives to the data.
+
+    Args:
+        comp_tracks: The computed tracks.
+        traj: The trajectories.
+        noise_add_false_negative: The number of false negatives to add.
+        seed: The seed for the random number generator.
+
+    Returns:
+        The computed tracks and the trajectories with the false negatives added.
+    """
     if noise_add_false_negative == 0:
         return comp_tracks, traj
 
@@ -108,18 +142,28 @@ def add_false_negatives(
                 _m_comp[_m_comp == v] = next_id
                 l_comp[f] = _l_comp.tolist()
                 m_comp[f] = _m_comp.tolist()
-
         next_id += 1
-
     return comp_tracks, traj
 
 
 def add_false_positives(
-        comp_tracks,
-        traj,
-        noise_add_false_positive,
-        seed
+        comp_tracks: np.ndarray,
+        traj: dict,
+        noise_add_false_positive: int,
+        seed: int,
 ):
+    """
+    Add false positives to the data.
+
+    Args:
+        comp_tracks: The computed tracks.
+        traj: The trajectories.
+        noise_add_false_positive: The number of false positives to add.
+        seed: The seed for the random number generator.
+
+    Returns:
+        The computed tracks and the trajectories with the false positives added.
+    """
     if noise_add_false_positive == 0:
         return comp_tracks, traj
 
@@ -139,11 +183,23 @@ def add_false_positives(
 
 
 def remove_matches(
-        comp_tracks,
-        traj,
-        noise_remove_matches,
-        seed
+        comp_tracks: np.ndarray,
+        traj: dict,
+        noise_remove_matches: int,
+        seed: int,
 ):
+    """
+    Remove ref-comp matches from the data.
+
+    Args:
+        comp_tracks: The computed tracks.
+        traj: The trajectories.
+        noise_remove_matches: The number of matches to remove.
+        seed: The seed for the random number generator.
+
+    Returns:
+        The computed tracks and the trajectories with the matches removed.
+    """
     if noise_remove_matches == 0:
         return comp_tracks, traj
 
@@ -166,11 +222,23 @@ def remove_matches(
 
 
 def add_id_switches(
-        comp_tracks,
-        traj,
-        noise_add_idsw,
-        seed
+        comp_tracks: np.ndarray,
+        traj: dict,
+        noise_add_idsw: int,
+        seed: int,
 ):
+    """
+    Add ID switches to the data.
+
+    Args:
+        comp_tracks: The computed tracks.
+        traj: The trajectories.
+        noise_add_idsw: The number of ID switches to add.
+        seed: The seed for the random number generator.
+
+    Returns:
+        The computed tracks and the trajectories with the ID switches added.
+    """
     if noise_add_idsw == 0:
         return comp_tracks, traj
 
@@ -254,8 +322,8 @@ def add_noise(
     traj = copy.deepcopy(traj)
 
     # Remove children of mitosis events
-    comp_tracks, traj = remove_mitosis(
-        comp_tracks, traj, noise_remove_mitosis, seed)
+    comp_tracks = remove_mitosis(
+        comp_tracks, noise_remove_mitosis, seed)
 
     # Add false negatives
     comp_tracks, traj = add_false_negatives(
@@ -282,6 +350,18 @@ def is_new_setting(
         name: str,
         df=None,
 ):
+    """
+    Check if the setting parameter setting is already existing in the csv file.
+
+    Args:
+        setting: The setting to check.
+        path: The path to the csv file.
+        name: The name of the sequence.
+        df: The dataframe to check.
+
+    Returns:
+        True if the setting is new, False otherwise.
+    """
     if exists(path):
         setting["name"] = name
         if df is None:
@@ -297,8 +377,15 @@ def is_new_setting(
 
 def append_results(
         path: str,
-        results
+        results: list,
 ):
+    """
+    Append the results to the csv file.
+
+    Args:
+        path: The path to the csv file.
+        results: The results to append.
+    """
     # Check if the file exists
     results = [pd.DataFrame.from_dict(r, orient="index").T for r in results]
     if exists(path):
@@ -356,6 +443,17 @@ def filter_existing_noise_settings(
         csv_file: str,
         name: str,
 ):
+    """
+    Filter and remove existing noise settings from the list of noise settings.
+
+    Args:
+        noise_settings: The list of noise settings.
+        csv_file: The path to the csv file.
+        name: The name of the sequence.
+
+    Returns:
+        The list of new noise settings.
+    """
     df = None
     new_noise_settings = []
 
@@ -388,6 +486,22 @@ def create_noise_settings(
         comp_tracks: np.ndarray,
         ref_tracks: np.ndarray,
 ):
+    """
+    Create a list of noise settings that should be executed from the given
+    parameters.
+
+    Args:
+        repeats: The number of repeats for each noise setting.
+        num_false_neg: The number of false negatives to add.
+        num_false_pos: The number of false positives to add.
+        num_idsw: The number of ID switches to add.
+        num_matches: The number of matches to remove.
+        comp_tracks: The computed tracks.
+        ref_tracks: The reference tracks.
+
+    Returns:
+        The list of noise settings.
+    """
     # Extract some statistics
     parents, counts = np.unique(
         comp_tracks[comp_tracks[:, 3] > 0, 3], return_counts=True)
@@ -418,6 +532,7 @@ def create_noise_settings(
             noise_settings.append({"seed": i, "noise_add_idsw": x})
 
     return noise_settings
+
 
 def evaluate_sequence(
         gt: str,

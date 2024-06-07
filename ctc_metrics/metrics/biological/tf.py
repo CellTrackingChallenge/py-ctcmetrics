@@ -61,10 +61,22 @@ def tf(
            - Vladimir Ulman et al., Nature methods 2017
 
     Args:
-        ref_tracks: The ground truth tracks.
-        labels_ref: The labels of the ground truth masks.
-        mapped_ref: The matched labels of the ground truth masks.
-        mapped_comp: The matched labels of the result masks.
+        ref_tracks: The ground truth tracks. A (n,4) numpy ndarray with columns:
+            - label
+            - birth frame
+            - end frame
+            - parent
+        labels_ref: The labels of the ground truth masks. A list of length
+        mapped_ref: The matched labels of the ground truth masks. A list of
+            length equal to the number of frames. Each element is a list with
+            the matched labels of the ground truth masks in the respective
+            frame. The elements are in the same order as the corresponding
+            elements in mapped_comp.
+        mapped_comp: The matched labels of the result masks. A list of length
+            equal to the number of frames. Each element is a list with the
+            matched labels of the result masks in the respective frame. The
+            elements are in the same order as the corresponding elements in
+            mapped_ref.
 
     Returns:
         The track fractions metric.
@@ -73,7 +85,7 @@ def tf(
         ref_tracks, labels_ref, mapped_ref, mapped_comp)
     # Calculate the track fractions with respect to the reference tracks
     tfs = {k: 0 for k in ref_tracks[:, 0]}
-    for k, v in sorted(comp_fractions.items()):
+    for _, v in sorted(comp_fractions.items()):
         for k2, v2 in sorted(v.items()):
             if tfs[k2] == 1:
                 continue

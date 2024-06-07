@@ -22,11 +22,9 @@ def mtml(
     Returns:
         The mt and ml metrics.
     """
-
     # Gather association data
     track_intersection = track_confusion_matrix(
         labels_ref, labels_comp, mapped_ref, mapped_comp)
-
     # Calculate the metrics
     total_ref = np.sum(track_intersection[1:, :], axis=1)
     ratio = np.max(track_intersection[1:, :], axis=1) / np.maximum(total_ref, 1)

@@ -15,22 +15,31 @@ def hota(
            - Luiten et al., {International Journal of Computer Vision 2020
 
     Args:
-        labels_comp: The labels of the computed masks.
-        labels_ref: The labels of the ground truth masks.
-        mapped_ref: The matched labels of the ground truth masks.
-        mapped_comp: The matched labels of the result masks.
+        labels_comp: The labels of the computed masks. A list of length equal
+            to the number of frames. Each element is a list with the labels of
+            the computed masks in the respective frame.
+        labels_ref: The labels of the ground truth masks. A list of length
+            equal to the number of frames. Each element is a list with the
+            labels of the ground truth masks in the respective frame.
+        mapped_ref: The matched labels of the ground truth masks. A list of
+            length equal to the number of frames. Each element is a list with
+            the matched labels of the ground truth masks in the respective
+            frame. The elements are in the same order as the corresponding
+            elements in mapped_comp.
+        mapped_comp: The matched labels of the result masks. A list of length
+            equal to the number of frames. Each element is a list with the
+            matched labels of the result masks in the respective frame. The
+            elements are in the same order as the corresponding elements in
+            mapped_ref.
 
     Returns:
-        The hota tracks metric.
+        The HOTA tracks metric.
     """
-
+    # Gather association data
     max_label_ref = int(np.max(np.concatenate(labels_ref)))
     max_label_comp = int(np.max(np.concatenate(labels_comp)))
-
-    # Gather association data
     track_intersection = track_confusion_matrix(
         labels_ref, labels_comp, mapped_ref, mapped_comp)
-
     # Calculate Association scores
     hota_score = 0
     for i in range(1, max_label_ref + 1):
@@ -42,7 +51,7 @@ def hota(
                 fpa = np.sum(track_intersection[:, j]) - tpa
                 a_corr = tpa / (tpa + fna + fpa)
                 hota_score += tpa * a_corr
-
+    # Calculate the HOTA score
     tp = track_intersection[1:, 1:].sum()
     fp = track_intersection[0, 1:].sum()
     fn = track_intersection[1:, 0].sum()

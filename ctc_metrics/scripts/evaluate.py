@@ -24,13 +24,25 @@ def match_computed_to_reference_masks(
     Matches computed masks to reference masks.
 
     Args:
-        ref_masks: The reference masks.
-        comp_masks: The computed masks.
+        ref_masks: The reference masks. A list of paths to the reference masks.
+        comp_masks: The computed masks. A list of paths to the computed masks.
         threads: The number of threads to use. If 0, the number of threads
             is set to the number of available CPUs.
 
     Returns:
-        The results stored in a dictionary.
+        The results stored in a dictionary. The dictionary contains the
+        following keys:
+            - labels_ref: The reference labels. A list of lists containing
+                the labels of the reference masks.
+            - labels_comp: The computed labels. A list of lists containing
+                the labels of the computed masks.
+            - mapped_ref: The mapped reference labels. A list of lists
+                containing the mapped labels of the reference masks.
+            - mapped_comp: The mapped computed labels. A list of lists
+                containing the mapped labels of the computed masks.
+            - ious: The intersection over union values. A list of lists
+                containing the intersection over union values between mapped
+                reference and computed masks.
     """
     labels_ref, labels_comp, mapped_ref, mapped_comp, ious = [], [], [], [], []
     if threads != 1:
@@ -62,6 +74,23 @@ def load_data(
         segmentation_data: True,
         threads: int = 0,
 ):
+    """
+    Load data that is necessary to calculate metrics from the given directories.
+
+    Args:
+        res: The path to the results.
+        gt: The path to the ground truth.
+        trajectory_data: A flag if trajectory data is available.
+        segmentation_data: A flag if segmentation data is available.
+        threads: The number of threads to use. If 0, the number of threads
+            is set to the number of available CPUs.
+
+    Returns:
+        The computed tracks, the reference tracks, the trajectory data, the
+        segmentation data, the computed masks and a flag if the results are
+        valid.
+
+    """
     # Read tracking files and parse mask files
     comp_tracks = read_tracking_file(join(res, "res_track.txt"))
     ref_tracks = read_tracking_file(join(gt, "TRA", "man_track.txt"))
@@ -71,7 +100,6 @@ def load_data(
     assert len(ref_tra_masks) == len(comp_masks), (
         f"{res}: Number of result masks ({len(comp_masks)}) unequal to "
         f"the number of ground truth masks ({len(ref_tra_masks)})!)")
-
     # Match golden truth tracking masks to result masks
     traj = {}
     is_valid = 1
@@ -79,7 +107,6 @@ def load_data(
         traj = match_computed_to_reference_masks(
             ref_tra_masks, comp_masks, threads=threads)
         is_valid = valid(comp_masks, comp_tracks, traj["labels_comp"])
-
     # Match golden truth segmentation masks to result masks
     segm = {}
     if segmentation_data:
@@ -91,7 +118,6 @@ def load_data(
         ]
         segm = match_computed_to_reference_masks(
             ref_seg_masks, _res_masks, threads=threads)
-
     return comp_tracks, ref_tracks, traj, segm, comp_masks, is_valid
 
 
@@ -107,8 +133,16 @@ def calculate_metrics(
     Calculate metrics for given data.
 
     Args:
-        comp_tracks: The computed tracks result file.
-        ref_tracks: The reference tracks result file.
+        comp_tracks: The computed tracks.A (n,4) numpy ndarray with columns:
+            - label
+            - birth frame
+            - end frame
+            - parent
+        ref_tracks: The reference tracks. A (n,4) numpy ndarray with columns:
+            - label
+            - birth frame
+            - end frame
+            - parent
         traj: The frame-wise trajectory match data.
         segm: The frame-wise segmentation match data.
         metrics: The metrics to evaluate.
@@ -240,7 +274,7 @@ def evaluate_sequence(
         threads: int = 0,
     ):
     """
-    Evaluates a single sequence
+    Evaluates a single sequence.
 
     Args:
         res: The path to the results.

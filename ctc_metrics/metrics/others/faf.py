@@ -13,7 +13,7 @@ def faf(
         mapped_comp: The matched labels of the result masks.
 
     Returns:
-        The faf metric.
+        The FAF metric.
     """
 
     fp = 0

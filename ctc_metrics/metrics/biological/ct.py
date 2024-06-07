@@ -16,11 +16,29 @@ def ct(
            - Vladimir Ulman et al., Nature methods 2017
 
     Args:
-        comp_tracks: The result tracks.
-        ref_tracks: The ground truth tracks.
-        labels_ref: The labels of the ground truth masks.
-        mapped_ref: The matched labels of the ground truth masks.
-        mapped_comp: The matched labels of the result masks.
+        comp_tracks: The result tracks. A (n,4) numpy ndarray with columns:
+            - label
+            - birth frame
+            - end frame
+            - parent
+        ref_tracks: The ground truth tracks. A (n,4) numpy ndarray with columns:
+            - label
+            - birth frame
+            - end frame
+            - parent
+        labels_ref: The labels of the ground truth masks. A list of length
+            equal to the number of frames. Each element is a list with the
+            labels of the ground truth masks in the respective frame.
+        mapped_ref: The matched labels of the ground truth masks. A list of
+            length equal to the number of frames. Each element is a list with
+            the matched labels of the ground truth masks in the respective
+            frame. The elements are in the same order as the corresponding
+            elements in mapped_comp.
+        mapped_comp: The matched labels of the result masks. A list of length
+            equal to the number of frames. Each element is a list with the
+            matched labels of the result masks in the respective frame. The
+            elements are in the same order as the corresponding elements in
+            mapped_ref.
 
     Returns:
         The complete tracks metric.

@@ -8,6 +8,8 @@ def bio(
     """
     Computes the BIO. As described by
         [celltrackingchallenge](http://celltrackingchallenge.net/).
+    It is the average of the CT, TF, BC, and CCA metrics. If a metric is not
+    available, it is not considered in the average.
 
     Args:
         ct: The complete tracking metric.
@@ -16,7 +18,7 @@ def bio(
         cca: The cell cycle accuracy metric.
 
     Returns:
-        The bio metric.
+        The BIO metric.
     """
     total_metrics = 0
     if ct is not None:

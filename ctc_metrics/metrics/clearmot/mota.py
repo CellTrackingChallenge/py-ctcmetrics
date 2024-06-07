@@ -14,13 +14,25 @@ def mota(
            - Keni Bernardin and Rainer Stiefelhagen, EURASIP 2008
 
     Args:
-        labels_comp: The labels of the computed masks.
-        labels_ref: The labels of the ground truth masks.
-        mapped_ref: The matched labels of the ground truth masks.
-        mapped_comp: The matched labels of the result masks.
+        labels_comp: The labels of the computed masks. A list of length equal
+            to the number of frames. Each element is a list with the labels of
+            the computed masks in the respective frame.
+        labels_ref: The labels of the ground truth masks. A list of length
+            equal to the number of frames. Each element is a list with the
+            labels of the ground truth masks in the respective frame.
+        mapped_ref: The matched labels of the ground truth masks. A list of
+            length equal to the number of frames. Each element is a list with
+            the matched labels of the ground truth masks in the respective
+            frame. The elements are in the same order as the corresponding
+            elements in mapped_comp.
+        mapped_comp: The matched labels of the result masks. A list of length
+            equal to the number of frames. Each element is a list with the
+            matched labels of the result masks in the respective frame. The
+            elements are in the same order as the corresponding elements in
+            mapped_ref.
 
     Returns:
-        The mota tracks metric.
+        The MOTA tracks metric.
     """
     tp, fp, fn, idsw, multi_assignments = 0, 0, 0, 0, 0
 

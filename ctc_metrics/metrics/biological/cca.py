@@ -24,15 +24,26 @@ def is_valid_track(
     return valid
 
 
-def cca(comp_tracks: np.ndarray, ref_tracks: np.ndarray):
+def cca(
+        comp_tracks: np.ndarray,
+        ref_tracks: np.ndarray
+):
     """
     Computes the cell cycle accuracy. As described in the paper,
          "An objective comparison of cell-tracking algorithms."
            - Vladimir Ulman et al., Nature methods 2017
 
     Args:
-        comp_tracks: The result tracks.
-        ref_tracks: The ground truth tracks.
+        comp_tracks: The result tracks. A (n,4) numpy ndarray with columns:
+            - label
+            - birth frame
+            - end frame
+            - parent
+        ref_tracks: The ground truth tracks. A (n,4) numpy ndarray with columns:
+            - label
+            - birth frame
+            - end frame
+            - parent
 
     Returns:
         The cell cycle accuracy metric.

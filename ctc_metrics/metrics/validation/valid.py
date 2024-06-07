@@ -9,7 +9,11 @@ def valid_parents(
     Checks if all parents are >= 0.
 
     Args:
-        tracks: The result tracks.
+        tracks: The result tracks. Numpy array (n x 4) the columns are:
+            0: Label
+            1: Birth
+            2: End
+            3: Parent
 
     Returns:
         1 if all parents are >= 0, 0 otherwise.
@@ -30,7 +34,11 @@ def unique_labels(
     Checks if all labels are unique.
 
     Args:
-        tracks: The result tracks.
+        tracks: The result tracks. Numpy array (n x 4) the columns are:
+            0: Label
+            1: Birth
+            2: End
+            3: Parent
 
     Returns:
         1 if all labels are unique, 0 otherwise.
@@ -51,7 +59,11 @@ def valid_parent_links(
     Checks if all parent links are valid.
 
     Args:
-        tracks: The result tracks.
+        tracks: The result tracks. Numpy array (n x 4) the columns are:
+            0: Label
+            1: Birth
+            2: End
+            3: Parent
 
     Returns:
         1 if all parent links are valid, 0 otherwise.
@@ -80,7 +92,11 @@ def valid_ends(
     Checks if the end is not before the birth.
 
     Args:
-        tracks: The result tracks.
+        tracks: The result tracks. Numpy array (n x 4) with The columns are:
+            0: Label
+            1: Birth
+            2: End
+            3: Parent
 
     Returns:
         1 if all parent links are valid, 0 otherwise.
@@ -107,7 +123,7 @@ def inspect_masks(
 
     Args:
         frames: The frames to inspect.
-        masks: The masks to inspect.
+        masks: The mask files to inspect.
         labels_in_frames: The present labels corresponding to the file in
             "masks".
 
