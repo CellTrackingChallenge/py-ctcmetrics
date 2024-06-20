@@ -132,9 +132,9 @@ def add_false_negatives(
             comp_tracks[comp_tracks[:, 0] == v, 2] -= 1
         else:
             comp_tracks[comp_tracks[:, 0] == v, 2] = frame - 1
+            comp_tracks[comp_tracks[:, 3] == v, 3] = next_id
             comp_tracks = np.concatenate(
                 [comp_tracks, [[next_id, frame + 1, end, v]]], axis=0)
-            comp_tracks[comp_tracks[:, 0] == v, 3] = next_id
             for f in range(frame + 1, end + 1):
                 _l_comp = np.asarray(l_comp[f])
                 _m_comp = np.asarray(m_comp[f])
@@ -284,6 +284,7 @@ def add_id_switches(
 
     return comp_tracks, traj
 
+
 def add_noise(
         comp_tracks: np.ndarray,
         traj: dict,
@@ -348,7 +349,7 @@ def is_new_setting(
         setting: dict,
         path: str,
         name: str,
-        df=None,
+        df: pd.DataFrame = None,
 ):
     """
     Check if the setting parameter setting is already existing in the csv file.
@@ -571,8 +572,6 @@ def evaluate_sequence(
 
     comp_tracks, ref_tracks, traj, segm, _ = load_data(gt, threads)
 
-
-
     # Selection of noise settings
     noise_settings = create_noise_settings(
         repeats, num_false_neg, num_false_pos, num_idsw, num_matches,
@@ -657,7 +656,7 @@ def parse_args():
     parser.add_argument('--num-false-neg', type=int, default=500)
     parser.add_argument('--num-idsw', type=int, default=500)
     parser.add_argument('--num-matches', type=int, default=500)
-    parser.add_argument('--save-after', type=int, default=20)
+    parser.add_argument('--save-after', type=int, default=100)
     parser.add_argument('--repeats', type=int, default=10)
     args = parser.parse_args()
     return args
@@ -676,6 +675,7 @@ def main():
         "num_idsw": args.num_idsw,
         "num_matches": args.num_matches,
         "repeats": args.repeats,
+        "save_after": args.save_after,
     }
     if args.recursive:
         evaluate_all(args.gt, args.csv_file, args.num_threads, **experiments)

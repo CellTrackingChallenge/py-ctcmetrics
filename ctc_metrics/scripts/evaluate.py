@@ -128,7 +128,7 @@ def calculate_metrics(
         segm: dict,
         metrics: list = None,
         is_valid: bool = None,
-):  # noqa: C901
+):  # pylint: disable=C901,R1260
     """
     Calculate metrics for given data.
 

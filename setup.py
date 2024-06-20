@@ -20,6 +20,7 @@ setup(
         'console_scripts': [
             'ctc_evaluate = ctc_metrics.scripts.evaluate:main',
             'ctc_validate = ctc_metrics.scripts.validate:main',
+            'ctc_noise = ctc_metrics.scripts.noise:main',
             # Add more scripts here if needed
         ],
     },

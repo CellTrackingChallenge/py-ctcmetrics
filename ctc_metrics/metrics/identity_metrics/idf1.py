@@ -5,10 +5,10 @@ from ctc_metrics.utils.representations import track_confusion_matrix
 
 
 def get_idf1_stats(
-        track_intersection,
-        costs,
-        max_label_ref,
-        max_label_comp
+        track_intersection: np.ndarray,
+        costs: np.ndarray,
+        max_label_ref: int,
+        max_label_comp: int
 ):
     """
     Computes the IDF1 stats.
