@@ -1,5 +1,3 @@
-# pylint: disable=no-name-in-module
-
 import os.path
 
 import numpy as np
@@ -409,7 +407,6 @@ def merge_tracks(
     tracks = np.copy(tracks)
     labels = [np.copy(x) for x in labels]
     mapped = [np.copy(x) for x in mapped]
-
     # Find tracks that belong together
     parents, cnts = np.unique(tracks[tracks[:, 3] > 0, 3], return_counts=True)
     parents = parents[cnts == 1].tolist()
@@ -417,13 +414,10 @@ def merge_tracks(
 
     # Merge tracks
     mapping = {x: x for x in np.unique(tracks[:, 0])}
-    while len(children) > 0:
-        for parent, child in zip(parents, children):
-            if parent not in children:
-                break
-            mapping[child] = mapping[parent]
-            children.remove(child)
-            parents.remove(parent)
+    for parent, child in zip(parents, children):
+        for k, v in mapping.items():
+            if v == child:
+                mapping[k] = mapping[parent]
 
     # Relabel such that the labels are continuous
     remaining_labels = sorted(np.unique(list(mapping.values())))
