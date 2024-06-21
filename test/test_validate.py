@@ -1,4 +1,4 @@
-from test.utils import test_seq_res, test_seq_gt
+from test.utils import test_seq_res
 from ctc_metrics import validate_sequence
 
 
