@@ -598,7 +598,7 @@ def evaluate_sequence(
             )
             # Aggregate results and store them every n runs
             results_list.append(results)
-            if len(results_list) == save_after or new_noise_settings[-1] == setting:
+            if len(results_list) == save_after or i + 1 == len(new_noise_settings):
                 append_results(csv_file, results_list)
                 results_list = []
 
@@ -617,7 +617,7 @@ def evaluate_sequence(
                     name, setting, default_setting
                 ))
                 # Process in parallel and
-                if len(input_list) == save_after or new_noise_settings[-1] == setting:
+                if len(input_list) == save_after or i + 1 == len(new_noise_settings):
                     results_list = p.starmap(run_noisy_sample, input_list)
                     append_results(csv_file, results_list)
                     input_list = []
