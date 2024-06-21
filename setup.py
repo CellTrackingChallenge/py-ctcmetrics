@@ -10,7 +10,7 @@ setup(
         "scikit-learn>=1.3.0",
         "scipy>=1.11.2",
         "tifffile>=2023.8.30",
-        "imagecodecs>=2023.9.4",
+        "imagecodecs",
         "pandas>=2.2.1"
     ],
     author="Timo Kaiser",
