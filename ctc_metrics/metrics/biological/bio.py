@@ -11,7 +11,6 @@ def bio(
     It is the average of the CT, TF, BC, and CCA metrics. If a metric is not
     available, it is not considered in the average.
 
-
     Args:
         ct: The complete tracking metric.
         tf: The track fractions metric.
@@ -20,7 +19,6 @@ def bio(
 
     Returns:
         The BIO metric.
-
     """
     total_metrics = 0
     if ct is not None:
@@ -39,7 +37,5 @@ def bio(
         total_metrics += 1
     else:
         cca = 0
-
     bio_score = (ct + tf + bc + cca) / total_metrics
     return bio_score
-

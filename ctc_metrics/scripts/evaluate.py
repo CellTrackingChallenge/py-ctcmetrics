@@ -26,7 +26,6 @@ def match_computed_to_reference_masks(
     Args:
         ref_masks: The reference masks. A list of paths to the reference masks.
         comp_masks: The computed masks. A list of paths to the computed masks.
-
         threads: The number of threads to use. If 0, the number of threads
             is set to the number of available CPUs.
 
@@ -75,7 +74,7 @@ def load_data(
         segmentation_data: True,
         threads: int = 0,
 ):
-
+    """
     Load data that is necessary to calculate metrics from the given directories.
 
     Args:
@@ -101,7 +100,6 @@ def load_data(
     assert len(ref_tra_masks) == len(comp_masks), (
         f"{res}: Number of result masks ({len(comp_masks)}) unequal to "
         f"the number of ground truth masks ({len(ref_tra_masks)})!)")
-
     # Match golden truth tracking masks to result masks
     traj = {}
     is_valid = 1
@@ -109,7 +107,6 @@ def load_data(
         traj = match_computed_to_reference_masks(
             ref_tra_masks, comp_masks, threads=threads)
         is_valid = valid(comp_masks, comp_tracks, traj["labels_comp"])
-
     # Match golden truth segmentation masks to result masks
     segm = {}
     if segmentation_data:
@@ -121,7 +118,6 @@ def load_data(
         ]
         segm = match_computed_to_reference_masks(
             ref_seg_masks, _res_masks, threads=threads)
-
     return comp_tracks, ref_tracks, traj, segm, comp_masks, is_valid
 
 
@@ -281,7 +277,6 @@ def evaluate_sequence(
     """
     Evaluates a single sequence.
 
-
     Args:
         res: The path to the results.
         gt: The path to the ground truth.
@@ -366,7 +361,6 @@ def parse_args():
     parser.add_argument('--chota', action="store_true")
     parser.add_argument('--mtml', action="store_true")
     parser.add_argument('--faf', action="store_true")
-
     parser.add_argument('--lnk', action="store_true")
     args = parser.parse_args()
     return args
