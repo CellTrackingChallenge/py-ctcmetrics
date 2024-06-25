@@ -36,14 +36,14 @@ def visualize(
         res_dir: str,
         viz_dir: str = None,
         video_name: str = None,
-        border_width=None,
-        show_labels: bool=True,
+        border_width: str = None,
+        show_labels: bool = True,
         show_parents: bool = True,
         ids_to_show: list = None,
         start_frame: int = 0,
         framerate: int = 30,
         opacity: float = 0.5,
-): # pylint: disable=too-many-arguments
+):  # pylint: disable=too-many-arguments,too-complex,missing-type-doc
     """
     Visualizes the tracking results.
 
