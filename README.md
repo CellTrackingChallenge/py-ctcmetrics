@@ -40,6 +40,7 @@ pip install .
 
 ## Usage
 
+### Validation
 
 The package supports validation, evaluation, and visualization of tracking 
 results. The following examples are shown for an example directory that is 
@@ -107,6 +108,7 @@ Per default, the code is executed using multiple processes with one process per
 available CPU core. Multiprocessing increases the execution time but also 
 the memory consumption. If you need to set the maximal number of processes,
 the number of processes can be specified with the argument 
+
 ```--num-threads``` or ```-n```:
 ```bash
 ctc_evaluate --gt "/ctc/train" --res "/ctc/train" -r -n 4
@@ -129,7 +131,7 @@ The following table shows the available arguments:
 | --csv-file    | Path to a csv file to save the results.              | None |
 | --num-threads | Number of threads to use for evaluation.             | 1    |
 
-Per default, all given metrics are evaluated. Aou can also select the metrics
+Per default, all given metrics are evaluated. You can also select the metrics
 you are interested in to avoid the calculation of metrics that are not in your 
 interest. Additional arguments to select a subset of specific metrics are:
 
@@ -180,6 +182,7 @@ print(res["TRA"])
 
 You can visualize your tracking results with the following command:
 
+
 ```bash
 ctc_visualize --img "/ctc/train/challenge_x/01" --res "/ctc/train/challenge_x/01_RES"
 ```
@@ -203,6 +206,7 @@ There are additional arguments that can be used to specify the visualization.
 The following table shows the available arguments:
 
 
+
 | Argument          | Description                                                                              | Default |
 |-------------------|------------------------------------------------------------------------------------------|---------|
 | --img             | The directory to the images **(required)**                                               |         |
@@ -211,6 +215,7 @@ The following table shows the available arguments:
 | --video-name      | The path to the video if a video should be created                                       | None    |
 | --border-width    | The width of the border. Either an integer or a string that describes the challenge name | None    |
 | --show-no-labels  | Print no instance labels to the output as default                                        | False   |
+
 | --show-no-parents | Print no parent labels to the output as default                                          | False   |
 | --ids-to-show     | The IDs of the instances to show. If defined, all others will be ignored.                | None    |
 | --start-frame     | The frame to start the visualization                                                     | 0       |
