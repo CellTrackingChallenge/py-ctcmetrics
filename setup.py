@@ -13,8 +13,8 @@ setup(
         "imagecodecs",
         "pandas>=2.2.1"
     ],
-    author="Timo Kaiser",
-    author_email="kaiser@tnt.uni-hannover.de",
+    author="xxx",
+    author_email="xxx@txxx",
     description="Metrics for Cell Tracking Challenges",
     entry_points={
         'console_scripts': [

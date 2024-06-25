@@ -1,7 +1,3 @@
-[![License](https://img.shields.io/badge/License-BSD_2--Clause-orange.svg)](https://opensource.org/licenses/BSD-2-Clause)
-[![Pylint](https://github.com/TimoK93/ctc-metrics/actions/workflows/pylint.yml/badge.svg)](https://github.com/TimoK93/ctc-metrics/actions/workflows/pylint.yml)
-[![Python package](https://github.com/TimoK93/ctc-metrics/actions/workflows/python-package.yml/badge.svg)](https://github.com/TimoK93/ctc-metrics/actions/workflows/python-package.yml)
-
 # CTC-Metrics
 An python implementation of the metrics used in the 
 [Cell-Tracking-Challenge](https://celltrackingchallenge.net/). Additionally, 
@@ -11,9 +7,9 @@ and the metrics of the
 
 ---
 
-**WORK IN PROGRESS!**
+**Anonymous VERSION FOR PEER-REVIEW!**
 
-The first tested version will be published soon.
+Some files like author information will be added after acceptance.
 
 ---
 
@@ -27,13 +23,13 @@ installed automatically are listed in the [requirements.txt](requirements.txt).
 The package can be installed via pip:
 
 ```bash
-pip install git+https://github.com/TimoK93/ctc-metrics.git
+pip install git+https://github.com/xxx/xxx
 ```
 
 or from the source code:
 
 ```bash
-git clone https://github.com/TimoK93/ctc-metrics
+git clone https://github.com/xxx/xxx
 cd ctc-metrics
 pip install .
 ```
@@ -273,10 +269,6 @@ Otherwise, the code could flag your input as invalid, because the
 
 ## Contributing
 
-Contributions are welcome! For bug reports or requests please
-[submit an issue](www.github.com/TimoK93/ctc-metrics/issues). For new features
-please [submit a pull request](www.github.com/TimoK93/ctc-metrics/pulls).
-
 If you want to contribute, please check your code with pylint and the
 pre-commit hooks before submitting a pull request:
 
@@ -286,11 +278,6 @@ pre-commit run --all-files
 ```
 
 ## Acknowledgement and Citation
-
-The code was developed by Timo Kaiser on behalf of the [Institute of Information
-Processing](https://www.tnt.uni-hannover.de/) at the Leibniz University Hanover 
-and in conjunction with the organizers of the
-[Cell-Tracking-Challenge](https://celltrackingchallenge.net/).
 
 
 If you use this code or the [CHOTA]() metric in your research, please cite the following paper:
