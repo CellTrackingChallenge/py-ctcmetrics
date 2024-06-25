@@ -4,14 +4,15 @@ from multiprocessing import Pool, cpu_count
 import numpy as np
 
 from ctc_metrics.metrics import (
-    valid, det, seg, tra, ct, tf, bc, cca, op_ctb, op_csb, bio, op_clb, lnk
+    valid, det, seg, tra, ct, tf, bc, cca, mota, hota, idf1, chota, mtml, faf,
+    op_ctb, op_csb, bio, op_clb, lnk
 )
 from ctc_metrics.metrics import ALL_METRICS
 from ctc_metrics.utils.handle_results import print_results, store_results
 from ctc_metrics.utils.filesystem import parse_directories, read_tracking_file,\
     parse_masks
 from ctc_metrics.utils.representations import match as match_tracks, \
-    count_acyclic_graph_correction_operations
+    count_acyclic_graph_correction_operations, merge_tracks
 
 
 def match_computed_to_reference_masks(
@@ -23,13 +24,26 @@ def match_computed_to_reference_masks(
     Matches computed masks to reference masks.
 
     Args:
-        ref_masks: The reference masks.
-        comp_masks: The computed masks.
+        ref_masks: The reference masks. A list of paths to the reference masks.
+        comp_masks: The computed masks. A list of paths to the computed masks.
+
         threads: The number of threads to use. If 0, the number of threads
             is set to the number of available CPUs.
 
     Returns:
-        The results stored in a dictionary.
+        The results stored in a dictionary. The dictionary contains the
+        following keys:
+            - labels_ref: The reference labels. A list of lists containing
+                the labels of the reference masks.
+            - labels_comp: The computed labels. A list of lists containing
+                the labels of the computed masks.
+            - mapped_ref: The mapped reference labels. A list of lists
+                containing the mapped labels of the reference masks.
+            - mapped_comp: The mapped computed labels. A list of lists
+                containing the mapped labels of the computed masks.
+            - ious: The intersection over union values. A list of lists
+                containing the intersection over union values between mapped
+                reference and computed masks.
     """
     labels_ref, labels_comp, mapped_ref, mapped_comp, ious = [], [], [], [], []
     if threads != 1:
@@ -61,6 +75,23 @@ def load_data(
         segmentation_data: True,
         threads: int = 0,
 ):
+
+    Load data that is necessary to calculate metrics from the given directories.
+
+    Args:
+        res: The path to the results.
+        gt: The path to the ground truth.
+        trajectory_data: A flag if trajectory data is available.
+        segmentation_data: A flag if segmentation data is available.
+        threads: The number of threads to use. If 0, the number of threads
+            is set to the number of available CPUs.
+
+    Returns:
+        The computed tracks, the reference tracks, the trajectory data, the
+        segmentation data, the computed masks and a flag if the results are
+        valid.
+
+    """
     # Read tracking files and parse mask files
     comp_tracks = read_tracking_file(join(res, "res_track.txt"))
     ref_tracks = read_tracking_file(join(gt, "TRA", "man_track.txt"))
@@ -73,7 +104,7 @@ def load_data(
 
     # Match golden truth tracking masks to result masks
     traj = {}
-    is_valid = 0
+    is_valid = 1
     if trajectory_data:
         traj = match_computed_to_reference_masks(
             ref_tra_masks, comp_masks, threads=threads)
@@ -106,8 +137,16 @@ def calculate_metrics(
     Calculate metrics for given data.
 
     Args:
-        comp_tracks: The computed tracks result file.
-        ref_tracks: The reference tracks result file.
+        comp_tracks: The computed tracks.A (n,4) numpy ndarray with columns:
+            - label
+            - birth frame
+            - end frame
+            - parent
+        ref_tracks: The reference tracks. A (n,4) numpy ndarray with columns:
+            - label
+            - birth frame
+            - end frame
+            - parent
         traj: The frame-wise trajectory match data.
         segm: The frame-wise segmentation match data.
         metrics: The metrics to evaluate.
@@ -116,6 +155,19 @@ def calculate_metrics(
     Returns:
         The results stored in a dictionary.
     """
+    # Create merge tracks
+    if traj:
+        new_tracks, new_labels, new_mapped = merge_tracks(
+            ref_tracks, traj["labels_ref"], traj["mapped_ref"])
+        traj["ref_tracks_merged"] = new_tracks
+        traj["labels_ref_merged"] = new_labels
+        traj["mapped_ref_merged"] = new_mapped
+        new_tracks, new_labels, new_mapped = merge_tracks(
+            comp_tracks, traj["labels_comp"], traj["mapped_comp"])
+        traj["comp_tracks_merged"] = new_tracks
+        traj["labels_comp_merged"] = new_labels
+        traj["mapped_comp_merged"] = new_mapped
+
     # Prepare intermediate results
     graph_operations = {}
     if "DET" in metrics or "TRA" in metrics:
@@ -135,6 +187,12 @@ def calculate_metrics(
 
     if "Valid" in metrics:
         results["Valid"] = is_valid
+
+    if "CHOTA" in metrics:
+        results.update(chota(
+            traj["ref_tracks_merged"], traj["comp_tracks_merged"],
+            traj["labels_ref_merged"], traj["labels_comp_merged"],
+            traj["mapped_ref_merged"], traj["mapped_comp_merged"]))
 
     if "DET" in metrics:
         results["DET"] = det(**graph_operations)
@@ -181,10 +239,35 @@ def calculate_metrics(
                 results["CT"], results["TF"],
                 results[f"BC({i})"], results["CCA"])
 
-    if "BIO(0)" in results and "LNK" in results:
+    if "BIO" in results and "LNK" in results:
         for i in range(4):
             results[f"OP_CLB({i})"] = op_clb(
-                results[f"LNK({i})"], results[f"BIO({i})"])
+                results["LNK"], results[f"BIO({i})"])
+
+    if "MOTA" in metrics:
+        results.update(mota(
+            traj["labels_ref_merged"], traj["labels_comp_merged"],
+            traj["mapped_ref_merged"], traj["mapped_comp_merged"]))
+
+    if "HOTA" in metrics:
+        results.update(hota(
+            traj["labels_ref_merged"], traj["labels_comp_merged"],
+            traj["mapped_ref_merged"], traj["mapped_comp_merged"]))
+
+    if "IDF1" in metrics:
+        results.update(idf1(
+            traj["labels_ref_merged"], traj["labels_comp_merged"],
+            traj["mapped_ref_merged"], traj["mapped_comp_merged"]))
+
+    if "MTML" in metrics:
+        results.update(mtml(
+            traj["labels_ref_merged"], traj["labels_comp_merged"],
+            traj["mapped_ref_merged"], traj["mapped_comp_merged"]))
+
+    if "FAF" in metrics:
+        results.update(faf(
+            traj["labels_comp_merged"], traj["mapped_comp_merged"]))
+
 
     return results
 
@@ -196,7 +279,8 @@ def evaluate_sequence(
         threads: int = 0,
     ):
     """
-    Evaluates a single sequence
+    Evaluates a single sequence.
+
 
     Args:
         res: The path to the results.
@@ -217,7 +301,7 @@ def evaluate_sequence(
     trajectory_data = True
     segmentation_data = True
 
-    if metrics in (["SEG"], ["CCA"]):
+    if metrics in [["SEG"], ["CCA"]]:
         trajectory_data = False
 
     if "SEG" not in metrics:
@@ -276,6 +360,13 @@ def parse_args():
     parser.add_argument('--tf', action="store_true")
     parser.add_argument('--bc', action="store_true")
     parser.add_argument('--cca', action="store_true")
+    parser.add_argument('--mota', action="store_true")
+    parser.add_argument('--hota', action="store_true")
+    parser.add_argument('--idf1', action="store_true")
+    parser.add_argument('--chota', action="store_true")
+    parser.add_argument('--mtml', action="store_true")
+    parser.add_argument('--faf', action="store_true")
+
     parser.add_argument('--lnk', action="store_true")
     args = parser.parse_args()
     return args
@@ -296,6 +387,12 @@ def main():
         ("TF", args.tf),
         ("BC", args.bc),
         ("CCA", args.cca),
+        ("MOTA", args.mota),
+        ("HOTA", args.hota),
+        ("CHOTA", args.chota),
+        ("IDF1", args.idf1),
+        ("MTML", args.mtml),
+        ("FAF", args.faf),
         ("LNK", args.lnk),
     ) if flag]
     metrics = metrics if metrics else None

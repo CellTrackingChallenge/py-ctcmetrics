@@ -6,6 +6,51 @@ from sklearn.metrics import confusion_matrix
 from scipy.sparse import lil_array
 
 
+def track_confusion_matrix(
+        labels_ref: list,
+        labels_comp: list,
+        mapped_ref: list,
+        mapped_comp: list
+):
+    """
+    Computes the confusion matrix for the input data.
+
+    Args:
+        labels_ref: The labels of the ground truth masks.
+        labels_comp: The labels of the result masks.
+        mapped_ref: The matched labels of the ground truth masks.
+        mapped_comp: The matched labels of the result masks.
+
+    Returns:
+        The confusion matrix. The size if the confusion matrix is
+            max_label_ref + 1 x max_label_comp + 1
+        where [:, 0] contains the false negatives and [0, :] contains the
+        false positives. The rest of the matrix contains the true positives.
+
+    """
+    max_label_ref = int(np.max(np.concatenate(labels_ref)))
+    max_label_comp = int(np.max(np.concatenate(labels_comp)))
+
+    # Gather association data
+    track_intersection = np.zeros((max_label_ref + 1, max_label_comp + 1))
+
+    for ref, comp, m_ref, m_comp in zip(
+            labels_ref, labels_comp, mapped_ref, mapped_comp):
+        # Fill track intersection matrix
+        ref = np.asarray(ref)
+        comp = np.asarray(comp).astype(int)
+        m_ref = np.asarray(m_ref).astype(int)
+        m_comp = np.asarray(m_comp).astype(int)
+        if len(m_ref) > 0:
+            track_intersection[m_ref, m_comp] += 1
+        fna = ref[np.isin(ref, m_ref, invert=True)]
+        track_intersection[fna, 0] += 1
+        fpa = comp[np.isin(comp, m_comp, invert=True)].astype(int)
+        track_intersection[0, fpa] += 1
+
+    return track_intersection
+
+
 def match(
         ref_path: str,
         comp_path: str
@@ -137,10 +182,9 @@ def create_edge_mapping(
         id1, id2 = l_gt1[ind1], l_gt2[ind2]
         t1, t2 = np.ones_like(id1) * current_t, np.ones_like(id1) * current_t + 1
         ind1, ind2 = ind1 + ind_v, ind2 + ind_v + len(l_gt1)
-        det_test1, det_test2 = V_tp[ind1], V_tp[ind2]
         edges = np.stack([
-            ind1, id1, det_test1, t1,
-            ind2, id2, det_test2, t2,
+            ind1, id1, V_tp[ind1], t1,
+            ind2, id2,  V_tp[ind2], t2,
             np.zeros_like(id1)], axis=1)
         all_edges.append(edges)
         ind_v += len(l_gt1)
@@ -154,10 +198,8 @@ def create_edge_mapping(
         ind1 = np.argwhere(labels[end1] == label1)[0] + cum_inds[end1]
         ind2 = np.argwhere(labels[birth2] == label2)[0] + cum_inds[birth2]
         ind1, ind2 = int(ind1), int(ind2)
-        t1, t2 = end1, birth2
-        det_test1, det_test2 = int(V_tp[ind1]), int(V_tp[ind2])
         edges = np.asarray(
-            [ind1, label1, det_test1, t1, ind2, label2, det_test2, t2, 1]
+            [ind1, label1, int(V_tp[ind1]), end1, ind2, label2, int(V_tp[ind2]), birth2, 1]
         )[None, :]
         all_edges.append(edges)
     return np.concatenate(all_edges, axis=0).astype(int)
@@ -286,8 +328,10 @@ def count_acyclic_graph_correction_operations(
                          + E_R[:, 4])
     unique_edge_ids_C = (E_C[:, 9] * 10 ** len(str(stats["num_vertices_R"]))
                          + E_C[:, 10])
-    assert np.max(np.unique(unique_edge_ids_R, return_counts=True)[1]) == 1
-    assert np.max(np.unique(unique_edge_ids_C, return_counts=True)[1]) == 1
+    if unique_edge_ids_R.size > 0:
+        assert np.max(np.unique(unique_edge_ids_R, return_counts=True)[1]) == 1
+    if unique_edge_ids_C.size > 0:
+        assert np.max(np.unique(unique_edge_ids_C, return_counts=True)[1]) == 1
     isin_R = np.isin(unique_edge_ids_C, unique_edge_ids_R)
     isin_C = np.isin(unique_edge_ids_R, unique_edge_ids_C)
     E_R_mapped = E_R[isin_C]
@@ -339,3 +383,74 @@ def assign_comp_to_ref(
                 track_assignments[i][frame] = 0
         frame += 1
     return track_assignments
+
+
+def merge_tracks(
+        tracks: np.ndarray,
+        labels: list,
+        mapped: list
+):
+    """
+    Merges tracks that belong to the same cell trajectory. This can happen, if
+    a cell is invisible for a few frames and the tracking algorithm splits the
+    track into two or more tracks. The resulting data is a relabelled version
+    of the input data.
+
+    Args:
+        tracks: The tracks.
+        labels: The labels of the masks.
+        mapped: The matched labels of the masks.
+
+    Returns:
+        As input data, but relabelled.
+    """
+    tracks = np.copy(tracks)
+    labels = [np.copy(x) for x in labels]
+    mapped = [np.copy(x) for x in mapped]
+    # Find tracks that belong together
+    parents, cnts = np.unique(tracks[tracks[:, 3] > 0, 3], return_counts=True)
+    parents = parents[cnts == 1].tolist()
+    children = [tracks[tracks[:, 3] == p][0, 0] for p in parents]
+
+    # Merge tracks
+    mapping = {x: x for x in np.unique(tracks[:, 0])}
+    for parent, child in zip(parents, children):
+        for k, v in mapping.items():
+            if v == child:
+                mapping[k] = mapping[parent]
+
+    # Relabel such that the labels are continuous
+    remaining_labels = sorted(np.unique(list(mapping.values())))
+    new_labels = list(range(1, len(remaining_labels) + 1))
+    for k, v in mapping.items():
+        new_v = new_labels[remaining_labels.index(v)]
+        mapping[k] = new_v
+
+    lut = np.zeros(np.max(list(mapping.keys())) + 1, dtype=int)
+    for k, v in mapping.items():
+        lut[k] = v
+
+    # Relabel tracks
+    new_tracks = np.copy(tracks)
+    for k, v in mapping.items():
+        new_tracks[tracks[:, 0] == k, 0] = v
+        new_tracks[tracks[:, 3] == k, 3] = v
+    ids, counts = np.unique(new_tracks[:, 0], return_counts=True)
+    ids = ids[counts > 1]
+    for i in ids:
+        inds = np.argwhere(new_tracks[:, 0] == i).flatten()
+        start = np.min(new_tracks[inds, 1])
+        end = np.max(new_tracks[inds, 2])
+        new_tracks[inds, 1] = start
+        new_tracks[inds, 2] = end
+        new_tracks = np.delete(new_tracks, inds[1:], axis=0)
+
+    # Relabel labels and mapped
+    new_labels = [[lut[x] for x in i] for i in labels]
+    new_mapped = [[lut[x] for x in i] for i in mapped]
+
+    return new_tracks, new_labels, new_mapped
+
+
+
+

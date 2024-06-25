@@ -10,7 +10,8 @@ setup(
         "scikit-learn>=1.3.0",
         "scipy>=1.11.2",
         "tifffile>=2023.8.30",
-        "imagecodecs>=2023.9.4",
+        "imagecodecs",
+        "pandas>=2.2.1"
     ],
     author="Timo Kaiser",
     author_email="kaiser@tnt.uni-hannover.de",
@@ -19,6 +20,7 @@ setup(
         'console_scripts': [
             'ctc_evaluate = ctc_metrics.scripts.evaluate:main',
             'ctc_validate = ctc_metrics.scripts.validate:main',
+            'ctc_noise = ctc_metrics.scripts.noise:main',
             'ctc_visualize = ctc_metrics.scripts.visualize:main',
             # Add more scripts here if needed
         ],
