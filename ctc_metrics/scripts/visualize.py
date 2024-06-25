@@ -43,7 +43,7 @@ def visualize(
         start_frame: int = 0,
         framerate: int = 30,
         opacity: float = 0.5,
-):  # pylint: disable=too-many-arguments,too-complex,missing-type-doc
+):  # pylint: disable=too-many-arguments,too-complex
     """
     Visualizes the tracking results.
 
@@ -73,8 +73,6 @@ def visualize(
         opacity: float
             The opacity of the instance colors.
 
-    Returns:
-        None
     """
     # Define initial video parameters
     wait_time = max(1, round(1000 / framerate))
@@ -189,7 +187,7 @@ def create_colored_image(
         res: np.ndarray,
         labels: bool = False,
         opacity: float = 0.5,
-        ids_to_show = None,
+        ids_to_show: list = None,
         frame: int = None,
         parents: dict = None,
 ):
