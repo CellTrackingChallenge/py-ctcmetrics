@@ -19,6 +19,6 @@ from ctc_metrics.metrics.biological.op_clb import op_clb
 from ctc_metrics.metrics.technical.lnk import lnk
 
 ALL_METRICS = [
-    "Valid", "BC", "CT", "CCA", "TF", "SEG", "TRA", "DET", "MOTA", "HOTA",
-    "CHOTA", "IDF1", "MTML", "FAF", "LNK", "OP_CTB", "OP_CSB", "BIO", "OP_CLB"
+    "Valid", "CHOTA", "BC", "CT", "CCA", "TF", "SEG", "TRA", "DET", "MOTA",
+    "HOTA", "IDF1", "MTML", "FAF", "LNK", "OP_CTB", "OP_CSB", "BIO", "OP_CLB"
 ]
