@@ -183,8 +183,8 @@ def no_empty_tracking_result(
         1 if there are detections, 0 otherwise.
     """
     is_valid = 1
-    warnings.warn("No tracks in result.", UserWarning)
     if len(tracks) == 0:
+        warnings.warn("No tracks in result.", UserWarning)
         is_valid = 0
     return is_valid
 
