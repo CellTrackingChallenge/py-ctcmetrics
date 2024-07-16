@@ -170,6 +170,25 @@ def no_empty_frames(
     return int(is_valid)
 
 
+def no_empty_tracking_result(
+        tracks: np.ndarray
+):
+    """
+    Checks if there is at least one detection in th results.
+
+    Args:
+        tracks: The tracks to inspect
+
+    Returns:
+        1 if there are detections, 0 otherwise.
+    """
+    is_valid = 1
+    warnings.warn("No tracks in result.", UserWarning)
+    if len(tracks) == 0:
+        is_valid = 0
+    return is_valid
+
+
 def valid(
         masks: list,
         tracks: np.ndarray,
@@ -195,6 +214,8 @@ def valid(
 
     """
     is_valid = 1
+    # If tracks is empty, the result is invalid
+    is_valid = no_empty_tracking_result(tracks)
     # Get the labels in each frame
     num_frames = max(tracks[:, 2].max() + 1, len(masks))
     frames = [[] for _ in range(num_frames)]
