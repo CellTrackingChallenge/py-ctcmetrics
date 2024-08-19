@@ -289,10 +289,10 @@ organizers of the [Cell-Tracking-Challenge](https://celltrackingchallenge.net/).
 
 If you use this code or the [CHOTA]() metric in your research, please cite the following paper:
 ```bibtex
-@inproceedings {kaiser2024chota,
+@inproceedings{kaiser2024chota,
     author = {Kaiser, Timo and Ulman, Vladimír and Rosenhahn, Bodo},
     title = {CHOTA: A Higher Order Accuracy Metric for Cell Tracking},
-    booktitle = {European Conference on Computer Vision Workshops (ICCVW)},
+    booktitle = {European Conference on Computer Vision Workshops (ECCVW)},
     year = {2024},
     organization={Springer}
 }
