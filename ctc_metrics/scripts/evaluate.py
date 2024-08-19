@@ -151,6 +151,13 @@ def calculate_metrics(
     Returns:
         The results stored in a dictionary.
     """
+    # Check if results are valid
+    results = {x: None for x in metrics}
+    if not is_valid:
+        print("Invalid results!")
+        results["Valid"] = 0
+        return results
+
     # Create merge tracks
     if traj:
         new_tracks, new_labels, new_mapped = merge_tracks(
@@ -175,12 +182,6 @@ def calculate_metrics(
             )
 
     # Calculate metrics
-    results = {x: None for x in metrics}
-    if not is_valid:
-        print("Invalid results!")
-        results["Valid"] = 0
-        return results
-
     if "Valid" in metrics:
         results["Valid"] = is_valid
 
