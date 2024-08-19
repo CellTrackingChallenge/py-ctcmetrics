@@ -2,16 +2,16 @@ from setuptools import setup, find_packages
 
 setup(
     name="ctc-metrics",
-    version="0.1.0",
+    version="1.0.0",
     packages=find_packages(),
     install_requires=[
-        "numpy>=1.25.2",
-        "opencv-python>=4.8.0.76",
-        "scikit-learn>=1.3.0",
-        "scipy>=1.11.2",
-        "tifffile>=2023.8.30",
+        "numpy",
+        "opencv-python",
+        "scikit-learn",
+        "scipy",
+        "tifffile",
         "imagecodecs",
-        "pandas>=2.2.1"
+        "pandas"
     ],
     author="Timo Kaiser",
     author_email="kaiser@tnt.uni-hannover.de",

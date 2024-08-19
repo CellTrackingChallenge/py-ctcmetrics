@@ -3,17 +3,12 @@
 [![Python package](https://github.com/TimoK93/ctc-metrics/actions/workflows/python-package.yml/badge.svg)](https://github.com/TimoK93/ctc-metrics/actions/workflows/python-package.yml)
 
 # CTC-Metrics
-An python implementation of the metrics used in the 
+A python implementation of the metrics used in the 
 [Cell-Tracking-Challenge](https://celltrackingchallenge.net/). Additionally, 
 [CHOTA](...),
 and the metrics of the 
 [MOTChallenge](https://motchallenge.net/) are implemented.
 
----
-
-**WORK IN PROGRESS!**
-
-The first tested version will be published soon.
 
 ---
 
@@ -285,18 +280,21 @@ pip install pre-commit, pylint
 pre-commit run --all-files
 ```
 
-## Acknowledgement and Citation
+## Acknowledgement and Citations
 
 The code was developed by Timo Kaiser on behalf of the [Institute of Information
-Processing](https://www.tnt.uni-hannover.de/) at the Leibniz University Hanover 
-and in conjunction with the organizers of the
-[Cell-Tracking-Challenge](https://celltrackingchallenge.net/).
+Processing](https://www.tnt.uni-hannover.de/) at the Leibniz University Hanover in conjunction with the 
+organizers of the [Cell-Tracking-Challenge](https://celltrackingchallenge.net/).
 
 
 If you use this code or the [CHOTA]() metric in your research, please cite the following paper:
 ```bibtex
-@article{
-    Something that will be added after acceptance
+@inproceedings {kaiser2024chota,
+    author = {Kaiser, Timo and Ulman, Vladimír and Rosenhahn, Bodo},
+    title = {CHOTA: A Higher Order Accuracy Metric for Cell Tracking},
+    booktitle = {European Conference on Computer Vision Workshops (ICCVW)},
+    year = {2024},
+    organization={Springer}
 }
 ```
 
