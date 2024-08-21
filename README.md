@@ -19,7 +19,7 @@ Detailed descriptions of the metrics can be found in the [paper](...).
 
 ---
 
-# Features at a Glance
+## Features at a Glance
 
 - **Validation**: Check if the tracking results are correctly formatted.
 - **Evaluation**: Evaluate the tracking results with respect to the ground truth using CTC, MotChallenge, and CHOTA metrics.
