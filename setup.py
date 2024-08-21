@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="py-ctcmetrics",
-    version="0.1.1",
+    version="0.1.3",
     packages=find_packages(),
     install_requires=[
         "numpy",
@@ -16,6 +16,7 @@ setup(
     author="Timo Kaiser",
     author_email="kaiser@tnt.uni-hannover.de",
     description="Metrics for Cell Tracking Challenges",
+    long_description="Metrics for Cell Tracking Challenges",
     entry_points={
         'console_scripts': [
             'ctc_evaluate = ctc_metrics.scripts.evaluate:main',
