@@ -41,7 +41,7 @@ installed automatically are listed in the [requirements.txt](requirements.txt).
 The package can be installed via pip:
 
 ```bash
-pip install git+https://github.com/CellTrackingChallenge/py-ctcmetrics.git
+pip install py-ctcmetrics
 ```
 
 or from the source code:
