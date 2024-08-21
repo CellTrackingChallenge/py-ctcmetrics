@@ -1,6 +1,7 @@
 [![License](https://img.shields.io/badge/License-BSD_2--Clause-orange.svg)](https://opensource.org/licenses/BSD-2-Clause)
 [![Pylint](https://github.com/TimoK93/ctc-metrics/actions/workflows/pylint.yml/badge.svg)](https://github.com/TimoK93/ctc-metrics/actions/workflows/pylint.yml)
 [![Python package](https://github.com/TimoK93/ctc-metrics/actions/workflows/python-package.yml/badge.svg)](https://github.com/TimoK93/ctc-metrics/actions/workflows/python-package.yml)
+[![PyPI](https://github.com/CellTrackingChallenge/py-ctcmetrics/actions/workflows/publish.yml/badge.svg)](https://github.com/CellTrackingChallenge/py-ctcmetrics/actions/workflows/publish.yml)
 
 # Py-CTCMetrics
 A python implementation of the metrics used in the paper 
