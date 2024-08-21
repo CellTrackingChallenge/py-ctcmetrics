@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(
-    name="ctc-metrics",
+    name="py-ctcmetrics",
     version="1.0.0",
     packages=find_packages(),
     install_requires=[

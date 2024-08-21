@@ -2,36 +2,56 @@
 [![Pylint](https://github.com/TimoK93/ctc-metrics/actions/workflows/pylint.yml/badge.svg)](https://github.com/TimoK93/ctc-metrics/actions/workflows/pylint.yml)
 [![Python package](https://github.com/TimoK93/ctc-metrics/actions/workflows/python-package.yml/badge.svg)](https://github.com/TimoK93/ctc-metrics/actions/workflows/python-package.yml)
 
-# CTC-Metrics
-A python implementation of the metrics used in the 
-[Cell-Tracking-Challenge](https://celltrackingchallenge.net/). Additionally, 
-[CHOTA](...),
-and the metrics of the 
-[MOTChallenge](https://motchallenge.net/) are implemented.
+# Py-CTCMetrics
+A python implementation of the metrics used in the paper 
+[CHOTA: A Higher Order Accuracy Metric for Cell Tracking](...) by 
+*Kaiser et al.*. The code is
+designed to evaluate tracking results in the format of the
+[Cell-Tracking-Challenge](https://celltrackingchallenge.net/) but can also be used 
+for custom results. 
+The repository contains the metrics of the
+[Cell-Tracking-Challenge](https://celltrackingchallenge.net/),
+the [MOTChallenge](https://motchallenge.net/), and the
+[CHOTA](...) metric.
 
+Detailed descriptions of the metrics can be found in the [paper](...).
 
 ---
 
-### Requirements
+# Features at a Glance
+
+- **Validation**: Check if the tracking results are correctly formatted.
+- **Evaluation**: Evaluate the tracking results with respect to the ground truth using CTC, MotChallenge, and CHOTA metrics.
+- **Visualization**: Visualize the tracking results.
+- **Video Creation**: Create a video of the visualized tracking results for presentation purposes.
+- **Noise Evaluation**: Evaluate the impact of specific errors on the evaluation metrics.
+ 
+---
+
+## Requirements
 
 We tested the code with **Python 3.10**. Additional packages that will be 
 installed automatically are listed in the [requirements.txt](requirements.txt).
+
+---
 
 ## Installation
 
 The package can be installed via pip:
 
 ```bash
-pip install git+https://github.com/TimoK93/ctc-metrics.git
+pip install git+https://github.com/CellTrackingChallenge/py-ctcmetrics.git
 ```
 
 or from the source code:
 
 ```bash
-git clone https://github.com/TimoK93/ctc-metrics
-cd ctc-metrics
+git clone https://github.com/CellTrackingChallenge/py-ctcmetrics
+cd py-ctcmetrics
 pip install .
 ```
+
+---
 
 ## Usage
 
@@ -99,7 +119,8 @@ The ```gt``` argument specifies the path to the ground truth directory, and the
 recursively evaluates all sequences in the directory.
 
 Per default, the code is executed using multiple processes with one process per 
-available CPU core. Multiprocessing increases the execution time but also 
+available CPU core. Multiprocessing decreases the execution time but also 
+increases
 the memory consumption. If you need to set the maximal number of processes,
 the number of processes can be specified with the argument 
 ```--num-threads``` or ```-n```:
@@ -259,12 +280,16 @@ The following table shows the available arguments:
 | -- save-after    | Save the intermediate results after a specific number of runs.    | 100 |
 
 
+---
+
 ## Notes
 
 - If you only have segmentation results and want to evaluate the *SEG* metric,
 it is important that you pass the *--seg* flag to the evaluation command. 
 Otherwise, the code could flag your input as invalid, because the 
 *res_track.txt* file is missing or inconsistent.
+
+---
 
 ## Contributing
 
@@ -280,6 +305,8 @@ pip install pre-commit, pylint
 pre-commit run --all-files
 ```
 
+---
+
 ## Acknowledgement and Citations
 
 The code was developed by Timo Kaiser on behalf of the [Institute of Information
@@ -287,7 +314,7 @@ Processing](https://www.tnt.uni-hannover.de/) at the Leibniz University Hanover 
 organizers of the [Cell-Tracking-Challenge](https://celltrackingchallenge.net/).
 
 
-If you use this code or the [CHOTA]() metric in your research, please cite the following paper:
+If you use this code or the CHOTA metric in your research, please cite the following paper:
 ```bibtex
 @inproceedings{kaiser2024chota,
     author = {Kaiser, Timo and Ulman, Vladimír and Rosenhahn, Bodo},
@@ -362,6 +389,8 @@ If you use the MOTA metric in your research, please cite the following paper:
   publisher={Springer}
 }
 ```
+
+---
 
 ## License
 
