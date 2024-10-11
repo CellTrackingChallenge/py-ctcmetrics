@@ -9,7 +9,7 @@ def tra(
         num_vertices: int,
         num_edges: int,
         **_ignored
-):  #pylint: disable=too-many-arguments
+):
     """
     Calculate Tracking (TRA) metric.
 

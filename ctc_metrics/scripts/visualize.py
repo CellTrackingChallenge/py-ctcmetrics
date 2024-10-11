@@ -190,7 +190,7 @@ def create_colored_image(
         ids_to_show: list = None,
         frame: int = None,
         parents: dict = None,
-):  #pylint: disable=too-many-arguments
+):
     """
     Creates a colored image from the input image and the results.
 

@@ -56,7 +56,7 @@ def chota(
         labels_comp: list,
         mapped_ref: list,
         mapped_comp: list
-):  #pylint: disable=too-many-arguments
+):
     """
 
 

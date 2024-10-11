@@ -212,7 +212,7 @@ def create_detection_test_matrix(
         labels_comp: list,
         mapped_ref: list,
         mapped_comp: list,
-):  #pylint: disable=too-many-arguments
+):
     """
     Creates the detection test matrix for the input tracks. The detection test
     is stored as a sparse matrix with num_V_C rows and num_V_R columns. The
@@ -250,7 +250,7 @@ def count_acyclic_graph_correction_operations(
         labels_comp: list,
         mapped_ref: list,
         mapped_comp: list,
-):  #pylint: disable=too-many-arguments
+):
     """
     Calculates the necessary operations to correct the result tracks to match
     the ground truth tracks. The operations are counted according to:

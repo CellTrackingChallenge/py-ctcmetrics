@@ -294,7 +294,7 @@ def add_noise(
         noise_add_idsw: int = 0,
         noise_remove_matches: int = 0,
         noise_remove_mitosis: int = 0,
-):  #pylint: disable=too-many-arguments
+):
     """
     Add noise to the data.
 
@@ -407,7 +407,7 @@ def run_noisy_sample(
         name: str,
         setting: dict,
         default_setting: dict,
-):  #pylint: disable=too-many-arguments
+):
     """
     Run a noisy sample
 
@@ -486,7 +486,7 @@ def create_noise_settings(
         num_matches: int,
         comp_tracks: np.ndarray,
         ref_tracks: np.ndarray,
-):  #pylint: disable=too-many-arguments
+):
     """
     Create a list of noise settings that should be executed from the given
     parameters.
@@ -546,7 +546,7 @@ def evaluate_sequence(
         num_false_pos: int = 500,
         num_idsw: int = 500,
         num_matches: int = 500,
-):  #pylint: disable=too-many-arguments
+):
     """
     Evaluates a single sequence
 
