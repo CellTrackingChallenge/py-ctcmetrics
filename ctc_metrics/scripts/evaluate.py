@@ -128,7 +128,7 @@ def calculate_metrics(
         segm: dict,
         metrics: list = None,
         is_valid: bool = None,
-):  # pylint: disable=too-complex
+):  # pylint: disable=too-complex,too-many-arguments
     """
     Calculate metrics for given data.
 
@@ -202,7 +202,7 @@ def calculate_metrics(
         results["TRA"] = _tra
         results["AOGM"] = _aogm
         results["AOGM_0"] = _aogm0
-        for key in ["NS", "FN", "FP", "ED", "EA", "EC"]:
+        for key in ("NS", "FN", "FP", "ED", "EA", "EC"):
             results[f"AOGM_{key}"] = graph_operations[key]
 
     if "LNK" in metrics:

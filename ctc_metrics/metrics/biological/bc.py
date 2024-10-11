@@ -55,7 +55,7 @@ def is_matching(
         comp_children: np.ndarray,
         tr: int,
         tc: int
-):
+):  #pylint: disable=too-many-arguments
     """
     Checks if the reference and the computed track match.
 
