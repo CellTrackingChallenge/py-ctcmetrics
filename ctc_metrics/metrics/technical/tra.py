@@ -44,5 +44,5 @@ def tra(
     AOGM_0 = w_fn * num_vertices + w_ea * num_edges
     # Calculate DET
     TRA = 1 - min(AOGM, AOGM_0) / AOGM_0
-    return float(TRA)
+    return float(TRA), AOGM, AOGM_0
 

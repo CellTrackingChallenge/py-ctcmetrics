@@ -198,7 +198,12 @@ def calculate_metrics(
         results["SEG"] = seg(segm["labels_ref"], segm["ious"])
 
     if "TRA" in metrics:
-        results["TRA"] = tra(**graph_operations)
+        _tra, _aogm, _aogm0 = tra(**graph_operations)
+        results["TRA"] = _tra
+        results["AOGM"] = _aogm
+        results["AOGM_0"] = _aogm0
+        for key in ["NS", "FN", "FP", "ED", "EA", "EC"]:
+            results[f"AOGM_{key}"] = graph_operations[key]
 
     if "LNK" in metrics:
         results["LNK"] = lnk(**graph_operations)
@@ -264,7 +269,6 @@ def calculate_metrics(
     if "FAF" in metrics:
         results.update(faf(
             traj["labels_comp_merged"], traj["mapped_comp_merged"]))
-
 
     return results
 
