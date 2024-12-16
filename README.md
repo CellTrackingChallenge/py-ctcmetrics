@@ -180,7 +180,7 @@ res = validate_sequence("/ctc/train/challenge_x/01_RES")
 print(res["Valid"])
 
 # Evaluate the sequence
-res = evaluate_sequence("/ctc/train/challenge_x/01_GT", "/ctc/train/challenge_x/01_RES")
+res = evaluate_sequence("/ctc/train/challenge_x/01_RES/TRA", "/ctc/train/challenge_x/01_GT")
 print(res["DET"])
 print(res["SEG"])
 print(res["TRA"])
