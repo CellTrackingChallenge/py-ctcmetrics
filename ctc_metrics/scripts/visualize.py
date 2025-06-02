@@ -23,7 +23,7 @@ BORDER_WIDTH = {
 }
 
 np.random.seed(0)
-PALETTE = np.random.randint(0, 256, (100000, 3))
+PALETTE = np.random.randint(0, 256, (10000, 3))
 
 
 def get_palette_color(i):
