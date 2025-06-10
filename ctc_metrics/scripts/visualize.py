@@ -43,7 +43,7 @@ def visualize(
         start_frame: int = 0,
         framerate: int = 30,
         opacity: float = 0.5,
-):  # pylint: disable=too-many-arguments,too-complex
+):  # pylint: disable=too-many-arguments,too-complex,too-many-locals
     """
     Visualizes the tracking results.
 
@@ -111,8 +111,12 @@ def visualize(
         print(f"\rFrame {img_name} (of {len(images)})", end="")
 
         # Visualize the image
+        img = tiff.imread(img_path)
+        p1, p99 = np.percentile(img, (1, 99))
+        img = np.clip((img - p1) / max(p99 - p1, 1e-5) * 255, 0, 255).astype(np.uint8)
+        img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
         viz = create_colored_image(
-            cv2.imread(img_path),
+            img,
             tiff.imread(res_path),
             labels=show_labels,
             frame=start_frame,
