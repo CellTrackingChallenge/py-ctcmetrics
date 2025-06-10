@@ -52,6 +52,12 @@ cd py-ctcmetrics
 pip install .
 ```
 
+**Note**: If you want to use the visualization feature, you need to install OpenCV or by installing the optional dependencies:
+```bash
+pip install py-ctcmetrics[viz]
+```
+
+
 ---
 
 ## Usage

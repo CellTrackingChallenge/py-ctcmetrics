@@ -2,17 +2,19 @@ from setuptools import setup, find_packages
 
 setup(
     name="py-ctcmetrics",
-    version="1.1.0",
+    version="1.2.0",
     packages=find_packages(),
     install_requires=[
         "numpy",
-        "opencv-python",
         "scikit-learn",
         "scipy",
         "tifffile",
         "imagecodecs",
         "pandas"
     ],
+    extras_require={
+        "viz": ["opencv-python"],
+    },
     author="Timo Kaiser",
     author_email="kaiser@tnt.uni-hannover.de",
     description="Metrics for Cell Tracking Challenges",
