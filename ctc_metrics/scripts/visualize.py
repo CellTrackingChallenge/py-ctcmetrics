@@ -43,7 +43,7 @@ def visualize(
         start_frame: int = 0,
         framerate: int = 30,
         opacity: float = 0.5,
-):  # pylint: disable=too-many-arguments,too-complex
+):  # pylint: disable=too-many-arguments,too-many-locals
     """
     Visualizes the tracking results.
 
