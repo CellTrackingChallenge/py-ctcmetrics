@@ -197,7 +197,7 @@ def create_edge_mapping(
         label1, _, end1, _ = tracks[tracks[:, 0] == parent2][0]
         ind1 = np.argwhere(labels[end1] == label1)[0] + cum_inds[end1]
         ind2 = np.argwhere(labels[birth2] == label2)[0] + cum_inds[birth2]
-        ind1, ind2 = int(ind1), int(ind2)
+        ind1, ind2 = ind1.item(), ind2.item()
         edges = np.asarray(
             [ind1, label1, int(V_tp[ind1]), end1, ind2, label2, int(V_tp[ind2]), birth2, 1]
         )[None, :]
@@ -374,7 +374,7 @@ def assign_comp_to_ref(
     ):
         for i in l_gt:
             if i in m_gt:
-                m = m_res[int(np.argwhere(np.asarray(m_gt) == i)[0])]
+                m = m_res[np.argwhere(np.asarray(m_gt) == i)[0].item()]
                 track_assignments[i][frame] = m
                 counts = np.sum(np.asarray(m_res) == m)
                 if counts > 1:
