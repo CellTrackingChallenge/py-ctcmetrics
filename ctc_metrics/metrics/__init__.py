@@ -1,5 +1,5 @@
 from ctc_metrics.metrics.validation.valid import valid
-from ctc_metrics.metrics.biological.bc import bc
+from ctc_metrics.metrics.biological.bc import bc, raw_division_metrics
 from ctc_metrics.metrics.biological.ct import ct
 from ctc_metrics.metrics.biological.cca import cca
 from ctc_metrics.metrics.biological.tf import tf

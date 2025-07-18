@@ -91,8 +91,7 @@ def is_matching(
         return False
     return True
 
-
-def bc(
+def raw_division_metrics(
         comp_tracks: np.ndarray,
         ref_tracks: np.ndarray,
         mapped_ref: list,
@@ -100,10 +99,8 @@ def bc(
         i: int
 ):
     """
-    Computes the branching correctness metric. As described in the paper,
-         "An objective comparison of cell-tracking algorithms."
-           - Vladimir Ulman et al., Nature methods 2017
-
+    Computes number of true positives, false positives, and false negatives for divisions.
+    
     Args:
         comp_tracks: The result tracks. A (n,4) numpy ndarray with columns:
             - label
@@ -128,21 +125,26 @@ def bc(
         i: The maximal allowed error in frames.
 
     Returns:
-        The branching correctness metric.
+        Tuple of true positives, false positives, and false negatives.
     """
-
     # Extract relevant tracks with children in reference
     ends_with_split_ref = get_ids_that_ends_with_split(ref_tracks)
     t_ref = np.array([ref_tracks[ref_tracks[:, 0] == ref][0, 2]
                       for ref in ends_with_split_ref])
-    if len(ends_with_split_ref) == 0:
-        return None
+
     # Extract relevant tracks with children in computed result
     ends_with_split_comp = get_ids_that_ends_with_split(comp_tracks)
     t_comp = np.asarray([comp_tracks[comp_tracks[:, 0] == comp][0, 2]
                          for comp in ends_with_split_comp])
+    
+    # If there are no divisions in the reference 
+    if len(ends_with_split_ref) == 0:
+        return (0, len(ends_with_split_comp), 0)
+    
+    # If there are no divisions in the computed result
     if len(ends_with_split_comp) == 0:
-        return 0
+        return (0, 0, len(ends_with_split_ref))
+    
     # Find all matches between reference and computed branching events (mitosis)
     matches = []
     for comp, tc in zip(ends_with_split_comp, t_comp):
@@ -162,8 +164,25 @@ def bc(
                     comp_children, tr, tc
             ):
                 matches.append((ref, comp))
+    return (len(matches), len(ends_with_split_comp) - len(matches), len(ends_with_split_ref) - len(matches))
+
+def bc(
+        tp: int,
+        fp: int,
+        fn: int
+):
+    """
+    Computes the branching correctness metric. As described in the paper,
+         "An objective comparison of cell-tracking algorithms."
+           - Vladimir Ulman et al., Nature methods 2017
+
+    Args:
+        tp: The number of true positives.
+        fp: The number of false positives.
+        fn: The number of false negatives.
+
+    Returns:
+        The branching correctness metric.
+    """
     # Calculate BC(i)
-    return calculate_f1_score(
-        len(matches),
-        len(ends_with_split_comp) - len(matches),
-        len(ends_with_split_ref) - len(matches))
+    return calculate_f1_score(tp, fp, fn)

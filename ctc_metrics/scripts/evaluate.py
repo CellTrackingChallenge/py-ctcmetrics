@@ -4,7 +4,7 @@ from multiprocessing import Pool, cpu_count
 import numpy as np
 
 from ctc_metrics.metrics import (
-    valid, det, seg, tra, ct, tf, bc, cca, mota, hota, idf1, chota, mtml, faf,
+    valid, det, seg, tra, ct, tf, bc, raw_division_metrics, cca, mota, hota, idf1, chota, mtml, faf,
     op_ctb, op_csb, bio, op_clb, lnk
 )
 from ctc_metrics.metrics import ALL_METRICS
@@ -226,10 +226,17 @@ def calculate_metrics(
 
     if "BC" in metrics:
         for i in range(4):
-            results[f"BC({i})"] = bc(
-                comp_tracks, ref_tracks,
+            tp, fp, fn = raw_division_metrics(comp_tracks, ref_tracks,
                 traj["mapped_ref"], traj["mapped_comp"],
                 i=i)
+     
+            if "gt_divisions" not in results:
+                results["gt_divisions"] = tp + fn
+
+            results[f"tp_div({i})"] = tp
+            results[f"fp_div({i})"] = fp
+            results[f"fn_div({i})"] = fn
+            results[f"BC({i})"] = bc(tp, fp, fn)
 
     if "CCA" in metrics:
         results["CCA"] = cca(comp_tracks, ref_tracks)
