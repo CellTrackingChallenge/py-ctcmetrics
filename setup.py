@@ -22,6 +22,7 @@ setup(
     entry_points={
         'console_scripts': [
             'ctc_evaluate = ctc_metrics.scripts.evaluate:main',
+            'ctc_evaluate_ctmc = ctc_metrics.scripts.evaluate_ctmc:main',
             'ctc_validate = ctc_metrics.scripts.validate:main',
             'ctc_noise = ctc_metrics.scripts.noise:main',
             'ctc_visualize = ctc_metrics.scripts.visualize:main',

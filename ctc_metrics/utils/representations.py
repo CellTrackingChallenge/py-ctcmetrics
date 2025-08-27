@@ -2,8 +2,10 @@ import os.path
 
 import numpy as np
 import tifffile as tiff
+from pandas.core.computation.expr import intersection
 from sklearn.metrics import confusion_matrix
 from scipy.sparse import lil_array
+from scipy.optimize import linear_sum_assignment
 
 
 def track_confusion_matrix(
@@ -43,10 +45,11 @@ def track_confusion_matrix(
         m_comp = np.asarray(m_comp).astype(int)
         if len(m_ref) > 0:
             track_intersection[m_ref, m_comp] += 1
-        fna = ref[np.isin(ref, m_ref, invert=True)]
-        track_intersection[fna, 0] += 1
-        fpa = comp[np.isin(comp, m_comp, invert=True)].astype(int)
-        track_intersection[0, fpa] += 1
+            fna = ref[np.isin(ref, m_ref, invert=True)]
+            track_intersection[fna, 0] += 1
+        if len(m_comp) > 0:
+            fpa = comp[np.isin(comp, m_comp, invert=True)].astype(int)
+            track_intersection[0, fpa] += 1
 
     return track_intersection
 
@@ -139,6 +142,110 @@ def match(
     assert np.unique(mapped_ref).size == len(mapped_ref), \
         f"Reference node assigned to multiple computed nodes! " \
         f"{ref_path} {labels_ref, labels_comp, mapped_ref, mapped_comp}"
+    labels_ref = labels_ref.tolist()
+    labels_comp = labels_comp.tolist()
+    return labels_ref, labels_comp, mapped_ref, mapped_comp, iou
+
+
+
+def calculate_bbox_iou(bb_ref, bb_comp):
+    """
+    Calculates the Intersection over Union (IoU) for two sets of bounding boxes.
+
+    Args:
+        bb_ref (np.ndarray): An array of shape [n, 1, 4] with bounding boxes
+                             in the format [x, y, w, h].
+        bb_comp (np.ndarray): An array of shape [1, m, 4] with bounding boxes
+                              in the format [x, y, w, h].
+
+    Returns:
+        np.ndarray: An array of shape [n, m] containing the IoU values.
+    """
+    # Convert from [x, y, w, h] to [x1, y1, x2, y2]
+    # We use broadcasting to efficiently perform the conversions.
+    bb_ref_xyxy = np.concatenate((bb_ref[..., :2], bb_ref[..., :2] + bb_ref[..., 2:]), axis=-1)
+    bb_comp_xyxy = np.concatenate((bb_comp[..., :2], bb_comp[..., :2] + bb_comp[..., 2:]), axis=-1)
+
+    # Calculate the coordinates of the intersection rectangle
+    # np.maximum and np.minimum are used with broadcasting.
+    x1_inter = np.maximum(bb_ref_xyxy[..., 0], bb_comp_xyxy[..., 0])
+    y1_inter = np.maximum(bb_ref_xyxy[..., 1], bb_comp_xyxy[..., 1])
+    x2_inter = np.minimum(bb_ref_xyxy[..., 2], bb_comp_xyxy[..., 2])
+    y2_inter = np.minimum(bb_ref_xyxy[..., 3], bb_comp_xyxy[..., 3])
+
+    # Calculate the area of the intersection rectangle
+    # The max(0, ...) ensures that if there's no overlap, the area is 0.
+    intersection_area = np.maximum(0, x2_inter - x1_inter) * np.maximum(0, y2_inter - y1_inter)
+
+    # Calculate the area of both bounding boxes
+    bb_ref_area = bb_ref[..., 2] * bb_ref[..., 3]
+    bb_comp_area = bb_comp[..., 2] * bb_comp[..., 3]
+
+    # Calculate the union area using the formula: Union = Area_A + Area_B - Intersection
+    union_area = bb_ref_area + bb_comp_area - intersection_area
+
+    # Avoid division by zero by setting IoU to 0 where union_area is 0
+    intersection_area, union_area = intersection_area.astype(float), union_area.astype(float)
+    iou = np.divide(intersection_area, union_area, out=np.zeros_like(intersection_area), where=union_area != 0)
+
+    return iou
+
+
+def match_bboxes(
+        ref_bboxes: list,
+        comp_bboxes: list
+):
+    """
+    Matches the labels of the bboxes from the reference and computed result.
+    A label is matched if the intersection of a computed and reference box is
+    greater than 50% iou and is the result of bijective linear sum assignment.
+
+    Args:
+        ref_bboxes: List of the reference bboxes [frame, id, x, y, w, h].
+        comp_bboxes: Path to the computed mask [frame, id, x, y, w, h].
+
+    Returns:
+        A tuple of five numpy arrays. The first array contains the existing
+        labels in the reference mask. The second array contains the
+        existing labels in the computed mask. The third array contains the
+        matched labels in the referenced mask. The fourth array contains
+        the corresponding matched labels in the computed mask. The fifth
+        array contains the intersection over union (IoU) for each matched
+        label pair.
+    """
+    # Extract the input data
+    labels_ref = [x[0] for x in ref_bboxes] if ref_bboxes else []
+    labels_comp = [x[0] for x in comp_bboxes] if comp_bboxes else []
+
+    if len(labels_ref) == 0 or len(labels_comp) == 0:
+        return labels_ref, labels_comp, [], [], []
+
+    assert max(np.unique(labels_ref, return_counts=True)[1]) == 1, \
+        f"Reference ids assigned multiple times: {np.unique(labels_ref, return_counts=True)}"
+    assert max(np.unique(labels_comp, return_counts=True)[1]) == 1, \
+        f"Computed ids assigned multiple times: {np.unique(labels_comp, return_counts=True)}"
+
+
+
+    labels_ref, labels_comp = np.asarray(labels_ref), np.asarray(labels_comp)
+
+    # Calculate intersection over union
+    bb_ref = np.asarray([[x[1], x[2], x[3], x[4]] for x in ref_bboxes])
+    bb_comp = np.asarray([[x[1], x[2], x[3], x[4]] for x in comp_bboxes])
+    bb_ref, bb_comp = bb_ref[:, None, :], bb_comp[None, :, :]
+
+    iou = calculate_bbox_iou(bb_ref, bb_comp)
+    costs = 1 - iou
+    costs[costs > 0.5] = np.inf
+
+    rows, cols = linear_sum_assignment(costs)
+
+    mapped_ref = labels_ref[rows].tolist()
+    mapped_comp = labels_comp[cols].tolist()
+    iou = iou[rows, cols].tolist()
+    assert np.unique(mapped_ref).size == len(mapped_ref), \
+        f"Reference node assigned to multiple computed nodes! " \
+        f"{labels_ref, labels_comp, mapped_ref, mapped_comp}"
     labels_ref = labels_ref.tolist()
     labels_comp = labels_comp.tolist()
     return labels_ref, labels_comp, mapped_ref, mapped_comp, iou

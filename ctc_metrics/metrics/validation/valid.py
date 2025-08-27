@@ -165,7 +165,7 @@ def no_empty_frames(
     is_valid = 1
     for i, f in enumerate(frames):
         if len(f) == 0:
-            warnings.warn(f"Empty frame {i}.", UserWarning)
+            warnings.warn(f"Empty frame {i}. Ok for CTMC datasets.", UserWarning)
             is_valid = 0
     return int(is_valid)
 
@@ -217,7 +217,10 @@ def valid(
     # If tracks is empty, the result is invalid
     is_valid = no_empty_tracking_result(tracks)
     # Get the labels in each frame
-    num_frames = max(tracks[:, 2].max() + 1, len(masks))
+    if masks is not None:
+        num_frames = max(tracks[:, 2].max() + 1, len(masks))
+    else:
+        num_frames = tracks[:, 2].max() + 1
     frames = [[] for _ in range(num_frames)]
     for track in tracks:
         label, birth, end, _ = track
@@ -232,7 +235,8 @@ def valid(
     # Check if end is not before birth
     is_valid *= valid_ends(tracks)
     # Check if all labels are in the frames they are used to be
-    is_valid *= inspect_masks(frames, masks, labels_in_frames)
+    if masks is not None:
+        is_valid *= inspect_masks(frames, masks, labels_in_frames)
     # Check if frames are empty
     no_empty_frames(frames)  # Should this make the validation irregular?
     return int(is_valid)

@@ -4,6 +4,31 @@ from os.path import join, exists, isdir
 import numpy as np
 
 
+def load_ctmc_bounding_boxes(
+        input_file: str
+):
+    # Load BBoxes
+    assert exists(input_file), f"{input_file} does not exist!"
+    with open(input_file, "r") as f:
+        lines = f.readlines()
+    bboxes = [[int(y) for y in x.split(",")[0:6]] for x in lines]  # Frame, ID, x, y, w, h,
+    # Sort by frames
+    max_frame = max([x[0] for x in bboxes])
+    _frames = [[] for _ in range(max_frame+1)]
+    for b in bboxes:
+        _frames[b[0]].append(b[1:])
+    # Sort every frame entry by its id
+    frames = []
+    for frame in _frames:
+        inds = np.argsort([x[0] for x in frame])
+        _frame = []
+        for ind in inds:
+            _frame.append(frame[ind])
+        frames.append(_frame)
+
+    return frames
+
+
 def parse_directories(
         input_dir: str,
         gt_dir: str = None,

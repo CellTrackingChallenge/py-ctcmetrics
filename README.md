@@ -288,6 +288,48 @@ The following table shows the available arguments:
 
 
 ---
+## Usage for CTMC dataset evaluation
+
+
+The package supports evaluation of CTMC tracking 
+results in bounding box format. The following examples are shown for an example directory that is 
+structured in the CTMC-format as follows:
+
+```bash
+ctmc_gt
+├── train
+│   ├── dataset_x
+│   │   ├── gt
+│   │   │   ├── gt.txt
+│   │   ├── TRA
+│   │   │   ├── man_track.txt
+│   ├── dataset_y 
+│   │   ├── ...
+results
+├── train
+│   ├── dataset_x
+│   │   ├── res
+│   │   │   ├── res.txt
+│   │   ├── TRA
+│   │   │   ├── res_track.txt
+│   ├── dataset_y 
+│   │   ├── ...
+```
+The directory ```ctmc```  contains the ground truth data. The subdirectories 
+```dataset_x``` and ```dataset_y``` contain the data for the different
+datasets. Each dataset directory contains subdirectories for the sequences
+```gt```, ```TRA```. The files 
+```gt.txt``` and ```man_track``` contain the ground truth bounding boxes (MotChallenge format) and the trajectories 
+(CTC format) for the sequence. 
+
+The directory ```results```  contains the result data, having the same format as above, only differing in the file names
+```res.txt``` and ```res_track```.
+
+To evaluate results against the ground truth, similar commands can be used. 
+For example, to evaluate the sequence ```dataset_x```, run the command
+```bash 
+ctc_evaluate_ctmc --gt "/ctmc_gt/train/dataset_x" --res "/results/train/dataset_x"
+```
 
 ## Notes
 
