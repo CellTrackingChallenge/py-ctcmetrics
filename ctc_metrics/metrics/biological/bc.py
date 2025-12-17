@@ -77,14 +77,14 @@ def is_matching(
     if len(ref_children) != len(comp_children):
         return False
     # Compare parents
-    t1, t2 = min(tr, tc), max(tr, tc)
+    t1, _ = min(tr, tc), max(tr, tc)
     mr, mc = mapped_ref[t1], mapped_comp[t1]
     if np.sum(mc == id_comp) < 1 or np.sum(mr == id_ref) != 1:
         return False
     ind = np.argwhere(mr == id_ref).squeeze()
     if mc[ind] != id_comp:
         return False
-    # # Compare children  ### WHAT IS A CORRECT DETECTED MITOSIS? CHILDREN ARE NOT IMPORTANT NOW
+    # # Compare children  ### WHAT IS A CORRECT DETECTED MITOSIS?
     # mr, mc = np.concatenate(mapped_ref[t2 + 1]), np.concatenate(mapped_comp[t2 + 1])
     # if not np.all(np.isin(comp_children, mc)):
     #     return False

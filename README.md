@@ -5,7 +5,7 @@
 
 # Py-CTCMetrics
 A python implementation of the metrics used in the paper 
-[CHOTA: A Higher Order Accuracy Metric for Cell Tracking](https://arxiv.org/abs/2408.11571) by 
+[CHOTA: A Higher Order Accuracy Metric for Cell Tracking](https://link.springer.com/chapter/10.1007/978-3-031-91721-9_8) by 
 *Timo Kaiser et al.*. The code is
 designed to evaluate tracking results in the format of the
 [Cell-Tracking-Challenge](https://celltrackingchallenge.net/) but can also be used 
