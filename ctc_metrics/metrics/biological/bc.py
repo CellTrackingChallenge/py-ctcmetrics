@@ -21,6 +21,7 @@ def get_ids_that_ends_with_split(
     counts = counts[parents > 0]
     parents = parents[parents > 0]
     ends_with_split = parents[counts > 1]
+    print("ends_with_split:", ends_with_split)
     return ends_with_split
 
 
@@ -83,12 +84,12 @@ def is_matching(
     ind = np.argwhere(mr == id_ref).squeeze()
     if mc[ind] != id_comp:
         return False
-    # Compare children
-    mr, mc = np.asarray(mapped_ref[t2 + 1]), np.asarray(mapped_comp[t2 + 1])
-    if not np.all(np.isin(comp_children, mc)):
-        return False
-    if not np.all(np.isin(mr[np.isin(mc, comp_children)], ref_children)):
-        return False
+    # # Compare children  ### WHAT IS A CORRECT DETECTED MITOSIS? CHILDREN ARE NOT IMPORTANT NOW
+    # mr, mc = np.concatenate(mapped_ref[t2 + 1]), np.concatenate(mapped_comp[t2 + 1])
+    # if not np.all(np.isin(comp_children, mc)):
+    #     return False
+    # if not np.all(np.isin(mr[np.isin(mc, comp_children)], ref_children)):
+    #     return False
     return True
 
 def raw_division_metrics(
