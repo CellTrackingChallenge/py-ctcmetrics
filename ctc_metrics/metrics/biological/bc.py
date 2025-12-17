@@ -89,6 +89,7 @@ def is_matching(
         return False
     # Compare children
     #  Iterate over all GT ids and check if the first detection is matched to the correct reference children
+    #  See discussion here https://github.com/CellTrackingChallenge/py-ctcmetrics/issues/22
     matched_children = []
     for i, t_ref in zip(ref_children, t_child_start_ref):
         for j, t_comp in zip(comp_children, t_child_start_comp):
