@@ -214,5 +214,9 @@ def bc(
     Returns:
         The branching correctness metric.
     """
+    # Return None if no split is existing in the reference data
+    if (tp + fn) == 0:
+        return None
+
     # Calculate BC(i)
     return calculate_f1_score(tp, fp, fn)
