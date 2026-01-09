@@ -57,6 +57,7 @@ def is_matching(
         t_parent_end_comp: int,
         t_child_start_ref: list,
         t_child_start_comp: list,
+        max_i: int,
 ):
     """
     Checks if the reference and the computed track match.
@@ -72,7 +73,7 @@ def is_matching(
         t_parent_end_comp: The frame of the computed track end.
         t_child_start_ref: The frame of the reference track start.
         t_child_start_comp: The frame of the computed track start.
-
+        max_i: The maximal time gap between starts of the reference and computed daughter tracks.
     Returns:
         True if the reference and the computed track match, False otherwise.
     """
@@ -93,6 +94,11 @@ def is_matching(
     matched_children = []
     for i, t_ref in zip(ref_children, t_child_start_ref):
         for j, t_comp in zip(comp_children, t_child_start_comp):
+            # Check if start frames of the daughters are close enough <= i_max
+            temporal_error = abs(t_ref - t_comp)
+            if temporal_error > max_i:
+                break
+            # Verify if children are matching
             t_max = max(t_ref, t_comp)
             if i in mapped_ref[t_max] and j in mapped_comp[t_max]:
                 ind = mapped_ref[t_max].index(i)
@@ -191,6 +197,7 @@ def raw_division_metrics(
                     t_parent_end_ref, t_parent_end_start,
                     t_child_start_ref,
                     t_child_start_comp,
+                    i
             ):
                 matches.append((ref, comp))
     return (len(matches), len(ends_with_split_comp) - len(matches), len(ends_with_split_ref) - len(matches))
