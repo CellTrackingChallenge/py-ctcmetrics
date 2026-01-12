@@ -73,16 +73,19 @@ def is_matching(
         t_parent_end_comp: The frame of the computed track end.
         t_child_start_ref: The frame of the reference track start.
         t_child_start_comp: The frame of the computed track start.
-        max_i: The maximal time gap between starts of the reference and computed daughter tracks.
+        max_i: The maximal time gap between ends of the reference and
+               computed mother tracks, and beginnings of daughter tracks.
     Returns:
         True if the reference and the computed track match, False otherwise.
     """
     # Check if the number of children is the same
     if len(ref_children) != len(comp_children):
         return False
-    # Compare parents
-    t_start = min(t_parent_end_ref, t_parent_end_comp)
-    mr, mc = mapped_ref[t_start], mapped_comp[t_start]
+    # Compare parents, for temporal distance and then for spatial overlap
+    if abs(t_parent_end_ref - t_parent_end_comp) > max_i:
+        return False
+    t_last_common = min(t_parent_end_ref, t_parent_end_comp)
+    mr, mc = mapped_ref[t_last_common], mapped_comp[t_last_common]
     if np.sum(mc == id_comp) < 1 or np.sum(mr == id_ref) != 1:
         return False
     ind = np.argwhere(mr == id_ref).squeeze()
