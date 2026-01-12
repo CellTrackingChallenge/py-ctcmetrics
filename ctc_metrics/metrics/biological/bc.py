@@ -101,7 +101,7 @@ def is_matching(
             temporal_error = abs(t_ref - t_comp)
             if temporal_error > max_i:
                 break
-            # Verify if children are matching
+            # Verify if children are overlapping spatially
             t_max = max(t_ref, t_comp)
             if i in mapped_ref[t_max] and j in mapped_comp[t_max]:
                 ind = mapped_ref[t_max].index(i)
@@ -148,7 +148,7 @@ def raw_division_metrics(
             matched labels of the result masks in the respective frame. The
             elements are in the same order as the corresponding elements in
             mapped_ref.
-        i: The maximal allowed error in frames.
+        i: The maximal allowed temporal error (offset) in frames.
 
     Returns:
         Tuple of true positives, false positives, and false negatives.
