@@ -129,7 +129,7 @@ def calculate_metrics(
         segm: dict,
         metrics: list = None,
         is_valid: bool = None,
-):  # pylint: disable=too-complex
+):  # pylint: disable=too-complex,too-many-branches
     """
     Calculate metrics for given data.
 
