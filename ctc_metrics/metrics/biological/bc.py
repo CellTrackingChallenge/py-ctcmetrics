@@ -58,7 +58,7 @@ def is_matching(
         t_child_start_ref: list,
         t_child_start_comp: list,
         max_i: int,
-):
+):  # pylint: disable=too-many-arguments
     """
     Checks if the reference and the computed track match.
 
