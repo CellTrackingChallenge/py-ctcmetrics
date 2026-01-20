@@ -91,6 +91,9 @@ def is_matching(
     ind = np.argwhere(mr == id_ref).squeeze()
     if mc[ind] != id_comp:
         return False
+    # Check if the  parent match is unique, i.e. the computed track is only assigned to one gt
+    if mc.count(mc[ind]) != 1:
+        return False
     # Compare children
     #  Iterate over all GT ids and check if the first detection is matched to the correct reference children
     #  See discussion here https://github.com/CellTrackingChallenge/py-ctcmetrics/issues/22
@@ -106,10 +109,12 @@ def is_matching(
             if i in mapped_ref[t_max] and j in mapped_comp[t_max]:
                 ind = mapped_ref[t_max].index(i)
                 if mapped_comp[t_max][ind] == j:
-                    # There is a match!
-                    if j not in matched_children:
-                        matched_children.append(j)
-                    break
+                    # Check if the  daughter match is unique, i.e. the computed track is only assigned to one gt
+                    if mapped_comp[t_max].count(j) == 1:
+                        # There is a match!
+                        if j not in matched_children:
+                            matched_children.append(j)
+                        break
 
     if len(matched_children) != len(ref_children):
         return False
@@ -203,6 +208,7 @@ def raw_division_metrics(
                     i
             ):
                 matches.append((ref, comp))
+
     return (len(matches), len(ends_with_split_comp) - len(matches), len(ends_with_split_ref) - len(matches))
 
 
