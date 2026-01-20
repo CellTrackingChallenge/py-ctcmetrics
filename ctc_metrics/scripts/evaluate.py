@@ -426,8 +426,12 @@ def main():
         res = evaluate_sequence(
             res=args.res, gt=args.gt, metrics=metrics, threads=args.num_threads)
     # Visualize and store results
-    for k,v in res.items():
-        print(f"{k}: {v}")
+    print_out = res if type(res) is list else [(args.res, res)]
+    for name, output in print_out:
+        print("----------")
+        print(f"{name}")
+        for k,v in output.items():
+            print(f"{k}: {v}")
     if args.csv_file is not None:
         store_results(args.csv_file, res)
 
