@@ -103,18 +103,20 @@ def is_matching(
             # Check if start frames of the daughters are close enough <= i_max
             temporal_error = abs(t_ref - t_comp)
             if temporal_error > max_i:
-                break
+                continue
             # Verify if children are overlapping spatially
             t_max = max(t_ref, t_comp)
+            # Check if the  daughter match is unique, i.e. the computed track is only assigned to one gt
+            if mapped_comp[t_max].count(j) != 1:
+                continue
             if i in mapped_ref[t_max] and j in mapped_comp[t_max]:
                 ind = mapped_ref[t_max].index(i)
                 if mapped_comp[t_max][ind] == j:
-                    # Check if the  daughter match is unique, i.e. the computed track is only assigned to one gt
-                    if mapped_comp[t_max].count(j) == 1:
-                        # There is a match!
-                        if j not in matched_children:
-                            matched_children.append(j)
-                        break
+                    # There is a match!
+                    if j not in matched_children:
+                        matched_children.append(j)
+                    break
+
 
     if len(matched_children) != len(ref_children):
         return False

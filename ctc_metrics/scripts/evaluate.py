@@ -1,8 +1,8 @@
+import warnings
 import argparse
 from os.path import join, basename
 from multiprocessing import Pool, cpu_count
 import numpy as np
-import warnings
 
 from ctc_metrics.metrics import (
     valid, det, seg, tra, ct, tf, bc, raw_division_metrics, cca, mota, hota, idf1, chota, mtml, faf,
@@ -177,9 +177,7 @@ def calculate_metrics(
     for m in metrics:
         if m.startswith("BC("):
             try:
-                i = int(m[3:-1])
-                if i > max_i_for_bci:
-                    max_i_for_bci = i
+                max_i_for_bci = max(max_i_for_bci, int(m[3:-1]))
                 if "BC" not in metrics:
                     metrics.append("BC")
             except ValueError:
@@ -426,12 +424,7 @@ def main():
         res = evaluate_sequence(
             res=args.res, gt=args.gt, metrics=metrics, threads=args.num_threads)
     # Visualize and store results
-    print_out = res if type(res) is list else [(args.res, res)]
-    for name, output in print_out:
-        print("----------")
-        print(f"{name}")
-        for k,v in output.items():
-            print(f"{k}: {v}")
+    print_results(res)
     if args.csv_file is not None:
         store_results(args.csv_file, res)
 

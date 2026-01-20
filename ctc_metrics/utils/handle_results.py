@@ -8,23 +8,22 @@ def print_results(results: dict):
         results: A dictionary containing the results.
     """
 
-    def print_line(metrics: dict):
+    def print_block(metrics: dict):
         """
         Prints a line of the table.
 
         Args:
             metrics: A list containing the arguments for the line.
         """
-
-        print(*[f"{k}: {'N/A' if v is None else float(v):.5},\t" for k, v
-                in metrics.items()])
+        for k, v in metrics.items():
+            print(f"{k}: {'N/A' if v is None else float(v):.5}")
 
     if isinstance(results, dict):
-        print_line(results)
+        print_block(results)
     elif isinstance(results, list):
         for res in results:
             print(res[0], end=":\t\t")
-            print_line(res[1])
+            print_block(res[1])
 
 
 def store_results(
