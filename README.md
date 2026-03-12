@@ -5,7 +5,7 @@
 
 # Py-CTCMetrics
 A python implementation of the metrics used in the paper 
-[CHOTA: A Higher Order Accuracy Metric for Cell Tracking](https://arxiv.org/abs/2408.11571) by 
+[CHOTA: A Higher Order Accuracy Metric for Cell Tracking](https://link.springer.com/chapter/10.1007/978-3-031-91721-9_8) by 
 *Timo Kaiser et al.*. The code is
 designed to evaluate tracking results in the format of the
 [Cell-Tracking-Challenge](https://celltrackingchallenge.net/) but can also be used 
@@ -156,23 +156,23 @@ Per default, all given metrics are evaluated. You can also select the metrics
 you are interested in to avoid the calculation of metrics that are not in your 
 interest. Additional arguments to select a subset of specific metrics are:
 
-| Argument | Description                                                     | 
-| --- |-----------------------------------------------------------------|
-| --valid | Check if the result has valid format                            | 
-| --det | The DET detection metric                                        |
-| --seg | The SEG segmentation metric                                     |
-| --tra | The TRA tracking metric                                         |
-| --lnk | The LNK linking metric                                          |
-| --ct | The CT (complete tracks) metric                                 |
-| --tf | The TF (track fraction) metric                                  |
-| --bc | The BC(i) (branching correctness) metric                        |
-| --cca | The CCA (cell cycle accuracy) metric                            |
-| --mota | The MOTA (Multiple Object Tracking Accuracy) metric             |
-| --hota | The HOTA (Higher Order Tracking Accuracy) metric                |
-| --idf1 | The IDF1 (ID F1) metric                                         |
-| --chota | The CHOTA (Cell-specific Higher Order Tracking Accuracy) metric |
-| --mtml | The MT (Mostly Tracked) and ML (Mostly Lost) metrics            |
-| --faf | The FAF (False Alarm per Frame) metric                          |
+| Argument | Description                                                                          | 
+|----------|--------------------------------------------------------------------------------------|
+| --valid  | Check if the result has valid format                                                 | 
+| --det    | The DET detection metric                                                             |
+| --seg    | The SEG segmentation metric                                                          |
+| --tra    | The TRA tracking metric                                                              |
+| --lnk    | The LNK linking metric                                                               |
+| --ct     | The CT (complete tracks) metric                                                      |
+| --tf     | The TF (track fraction) metric                                                       |
+| --bc i   | The BC(i) (branching correctness) metric. Set i >= 3 to an calculate BC(0) to BC(i)  |
+| --cca    | The CCA (cell cycle accuracy) metric                                                 |
+| --mota   | The MOTA (Multiple Object Tracking Accuracy) metric                                  |
+| --hota   | The HOTA (Higher Order Tracking Accuracy) metric                                     |
+| --idf1   | The IDF1 (ID F1) metric                                                              |
+| --chota  | The CHOTA (Cell-specific Higher Order Tracking Accuracy) metric                      |
+| --mtml   | The MT (Mostly Tracked) and ML (Mostly Lost) metrics                                 |
+| --faf    | The FAF (False Alarm per Frame) metric                                               |
 ---
 
 To use the evaluation protocol in your python code, the code can be imported

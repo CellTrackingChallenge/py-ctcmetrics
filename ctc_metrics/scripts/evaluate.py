@@ -1,3 +1,4 @@
+import warnings
 import argparse
 from os.path import join, basename
 from multiprocessing import Pool, cpu_count
@@ -128,7 +129,7 @@ def calculate_metrics(
         segm: dict,
         metrics: list = None,
         is_valid: bool = None,
-):  # pylint: disable=too-complex
+):  # pylint: disable=too-complex,too-many-branches
     """
     Calculate metrics for given data.
 
@@ -170,6 +171,17 @@ def calculate_metrics(
         traj["comp_tracks_merged"] = new_tracks
         traj["labels_comp_merged"] = new_labels
         traj["mapped_comp_merged"] = new_mapped
+
+    # Check if a manual i was defined for BC(i)
+    max_i_for_bci = 3
+    for m in metrics:
+        if m.startswith("BC("):
+            try:
+                max_i_for_bci = max(max_i_for_bci, int(m[3:-1]))
+                if "BC" not in metrics:
+                    metrics.append("BC")
+            except ValueError:
+                warnings.warn(f"{m} is not a valid metric identifier!.")
 
     # Prepare intermediate results
     graph_operations = {}
@@ -225,7 +237,7 @@ def calculate_metrics(
             traj["labels_ref"], traj["mapped_ref"], traj["mapped_comp"])
 
     if "BC" in metrics:
-        for i in range(4):
+        for i in range(max_i_for_bci+1):
             tp, fp, fn = raw_division_metrics(comp_tracks, ref_tracks,
                 traj["mapped_ref"], traj["mapped_comp"],
                 i=i)
@@ -243,13 +255,13 @@ def calculate_metrics(
 
     if "CT" in metrics and "BC" in metrics and \
             "CCA" in metrics and "TF" in metrics:
-        for i in range(4):
+        for i in range(max_i_for_bci+1):
             results[f"BIO({i})"] = bio(
                 results["CT"], results["TF"],
                 results[f"BC({i})"], results["CCA"])
 
     if "BIO" in results and "LNK" in results:
-        for i in range(4):
+        for i in range(max_i_for_bci+1):
             results[f"OP_CLB({i})"] = op_clb(
                 results["LNK"], results[f"BIO({i})"])
 
@@ -365,7 +377,7 @@ def parse_args():
     parser.add_argument('--tra', action="store_true")
     parser.add_argument('--ct', action="store_true")
     parser.add_argument('--tf', action="store_true")
-    parser.add_argument('--bc', action="store_true")
+    parser.add_argument('--bc', type=int, default=0)
     parser.add_argument('--cca', action="store_true")
     parser.add_argument('--mota', action="store_true")
     parser.add_argument('--hota', action="store_true")
@@ -391,7 +403,7 @@ def main():
         ("TRA", args.tra),
         ("CT", args.ct),
         ("TF", args.tf),
-        ("BC", args.bc),
+        (f"BC({args.bc})", args.bc),
         ("CCA", args.cca),
         ("MOTA", args.mota),
         ("HOTA", args.hota),
