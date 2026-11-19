@@ -178,6 +178,15 @@ def raw_division_metrics(
     if len(ends_with_split_comp) == 0:
         return (0, 0, len(ends_with_split_ref))
 
+    # Children of each reference division and their start frames, looked up
+    # once here instead of again for every computed division
+    children_ref, t_children_start_ref = {}, {}
+    for ref in ends_with_split_ref.tolist():
+        children_ref[ref] = ref_tracks[ref_tracks[:, 3] == ref][:, 0]
+        t_children_start_ref[ref] = [
+            ref_tracks[ref_tracks[:, 0] == j][0, 1] for j in children_ref[ref]
+        ]
+
     # Find all matches between reference and computed branching events (mitosis)
     # The track ids are taken as Python ints (tolist): is_matching searches
     # the label lists of mapped_ref / mapped_comp for them, and comparing
@@ -198,17 +207,12 @@ def raw_division_metrics(
                 ends_with_split_ref[pot_matches].tolist(),
                 t_ref[pot_matches]
         ):
-            ref_children = ref_tracks[ref_tracks[:, 3] == ref][:, 0]
-            t_child_start_ref = []
-            for j in ref_children:
-                t = ref_tracks[ref_tracks[:, 0] == j][0, 1]
-                t_child_start_ref.append(t)
             if is_matching(
                     comp, ref,
                     mapped_ref, mapped_comp,
-                    ref_children, comp_children,
+                    children_ref[ref], comp_children,
                     t_parent_end_ref, t_parent_end_start,
-                    t_child_start_ref,
+                    t_children_start_ref[ref],
                     t_child_start_comp,
                     i
             ):
