@@ -1,4 +1,5 @@
 import os.path
+from collections import Counter
 
 import numpy as np
 import tifffile as tiff
@@ -372,15 +373,16 @@ def assign_comp_to_ref(
     for l_gt, m_gt, m_res in zip(
             labels_ref, mapped_ref, mapped_comp
     ):
+        # Index the frame's matches once instead of searching m_gt and m_res
+        # for every label (each reference label is matched at most once)
+        ref_to_comp = dict(zip(m_gt, m_res))
+        comp_counts = Counter(m_res)
         for i in l_gt:
-            if i in m_gt:
-                m = m_res[np.argwhere(np.asarray(m_gt) == i)[0].item()]
-                track_assignments[i][frame] = m
-                counts = np.sum(np.asarray(m_res) == m)
-                if counts > 1:
-                    track_assignments[i][frame] = 0
-            else:
+            m = ref_to_comp.get(i)
+            if m is None or comp_counts[m] > 1:
                 track_assignments[i][frame] = 0
+            else:
+                track_assignments[i][frame] = m
         frame += 1
     return track_assignments
 
