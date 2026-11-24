@@ -86,9 +86,9 @@ def is_matching(
         return False
     t_last_common = min(t_parent_end_ref, t_parent_end_comp)
     mr, mc = mapped_ref[t_last_common], mapped_comp[t_last_common]
-    if np.sum(mc == id_comp) < 1 or np.sum(mr == id_ref) != 1:
+    if mc.count(id_comp) < 1 or mr.count(id_ref) != 1:
         return False
-    ind = np.argwhere(mr == id_ref).squeeze()
+    ind = mr.index(id_ref)
     if mc[ind] != id_comp:
         return False
     # Check if the  parent match is unique, i.e. the computed track is only assigned to one gt
@@ -178,9 +178,21 @@ def raw_division_metrics(
     if len(ends_with_split_comp) == 0:
         return (0, 0, len(ends_with_split_ref))
 
+    # Children of each reference division and their start frames, looked up
+    # once here instead of again for every computed division
+    children_ref, t_children_start_ref = {}, {}
+    for ref in ends_with_split_ref.tolist():
+        children_ref[ref] = ref_tracks[ref_tracks[:, 3] == ref][:, 0]
+        t_children_start_ref[ref] = [
+            ref_tracks[ref_tracks[:, 0] == j][0, 1] for j in children_ref[ref]
+        ]
+
     # Find all matches between reference and computed branching events (mitosis)
+    # The track ids are taken as Python ints (tolist): is_matching searches
+    # the label lists of mapped_ref / mapped_comp for them, and comparing
+    # list items with NumPy integers is several times slower
     matches = []
-    for comp, t_parent_end_start in zip(ends_with_split_comp, t_comp):
+    for comp, t_parent_end_start in zip(ends_with_split_comp.tolist(), t_comp):
         # Find potential matches
         pot_matches = np.abs(t_ref - t_parent_end_start) <= i
         if len(pot_matches) == 0:
@@ -192,20 +204,15 @@ def raw_division_metrics(
             t_child_start_comp.append(t)
         # Evaluate potential matches
         for ref, t_parent_end_ref in zip(
-                ends_with_split_ref[pot_matches],
+                ends_with_split_ref[pot_matches].tolist(),
                 t_ref[pot_matches]
         ):
-            ref_children = ref_tracks[ref_tracks[:, 3] == ref][:, 0]
-            t_child_start_ref = []
-            for j in ref_children:
-                t = ref_tracks[ref_tracks[:, 0] == j][0, 1]
-                t_child_start_ref.append(t)
             if is_matching(
                     comp, ref,
                     mapped_ref, mapped_comp,
-                    ref_children, comp_children,
+                    children_ref[ref], comp_children,
                     t_parent_end_ref, t_parent_end_start,
-                    t_child_start_ref,
+                    t_children_start_ref[ref],
                     t_child_start_comp,
                     i
             ):
